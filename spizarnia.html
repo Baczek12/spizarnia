@@ -676,7 +676,7 @@
 <!-- ─── VIEW: SPIŻARNIA ─────────────────────────────────────────── -->
 <section class="view active" id="view-pantry">
   <div class="tabs" id="tabs"></div>
-  <div class="stats">Produktów: <span id="statsCount">0</span>&nbsp;&nbsp;|&nbsp;&nbsp;Kategorii: <span id="statsCats">0</span></div>
+  <div class="stats">Produktów: <span id="statsCount">0</span>&nbsp;&nbsp;|&nbsp;&nbsp;Sztuk: <span id="statsQty">0</span>&nbsp;&nbsp;|&nbsp;&nbsp;Kategorii: <span id="statsCats">0</span></div>
   <div class="list" id="list"></div>
 </section>
 
@@ -960,6 +960,7 @@ function render() {
   ).join('');
 
   document.getElementById('statsCount').textContent = products.length;
+  document.getElementById('statsQty').textContent = products.reduce((s, p) => s + (Number(p.qty) || 0), 0);
   document.getElementById('statsCats').textContent = cats.length - 1;
 
   const filtered = getFiltered();
