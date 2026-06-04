@@ -841,8 +841,10 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
       margin-bottom: 12px;
     }
-    .recipe-head { display: flex; align-items: flex-start; gap: 10px; }
+    .recipe-head { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; }
     .recipe-emoji { font-size: 30px; line-height: 1; }
+    .rec-chev { font-size: 14px; color: var(--gray-dark); flex-shrink: 0; align-self: center; margin-left: 2px; }
+    .recipe-card.rc-collapsed { padding-bottom: 16px; }
     .recipe-title { font-size: 17px; font-weight: 700; flex: 1; }
     .recipe-badge {
       font-size: 11px;
@@ -2869,6 +2871,24 @@ function renderRecipes() {
 
 function setRecipeMode(m) { recipeMode = m; renderRecipes(); }
 
+// Zwijanie przepisów
+let collapsedRecipes = new Set();
+function toggleRecipe(key) {
+  if (collapsedRecipes.has(key)) collapsedRecipes.delete(key); else collapsedRecipes.add(key);
+  renderRecipes();
+}
+function recipeCollapseAll(enc, state) {
+  let keys = [];
+  try { keys = JSON.parse(decodeURIComponent(enc)); } catch (e) {}
+  if (state) keys.forEach(k => collapsedRecipes.add(k)); else keys.forEach(k => collapsedRecipes.delete(k));
+  renderRecipes();
+}
+function collapseAllBtn(keys) {
+  if (keys.length < 2) return '';
+  const allCol = keys.every(k => collapsedRecipes.has(k));
+  return `<button class="collapse-all" onclick="recipeCollapseAll('${encodeURIComponent(JSON.stringify(keys))}', ${allCol ? 'false' : 'true'})">${allCol ? '▾ Rozwiń wszystkie' : '▸ Zwiń wszystkie'}</button>`;
+}
+
 function renderSuggestions() {
   const panel = document.getElementById('recipesPanel');
 
@@ -2900,22 +2920,14 @@ function renderSuggestions() {
     panel.innerHTML = html;
     return;
   }
+  html += collapseAllBtn(list.map(({ r }) => 'sugg-' + r.name));
 
   panel.innerHTML = html +
     list.map(({ r, e }) => {
       const full = e.missing.length === 0;
-      return `
-        <div class="recipe-card">
-          <div class="recipe-head">
-            <span class="recipe-emoji">${r.emoji}</span>
-            <div style="flex:1;min-width:0;">
-              <div class="recipe-title">${esc(r.name)}</div>
-              <span class="recipe-meal">${r.meal}</span>
-            </div>
-            <span class="recipe-badge ${full ? 'badge-full' : 'badge-partial'}">
-              ${full ? '✓ Masz wszystko' : e.have + '/' + e.needed}
-            </span>
-          </div>
+      const key = 'sugg-' + r.name;
+      const collapsed = collapsedRecipes.has(key);
+      const body = collapsed ? '' : `
           <ul class="ingredients">
             ${r.ingredients.map(ing => {
               const owned = ownsIngredient(ing);
@@ -2930,7 +2942,21 @@ function renderSuggestions() {
             <summary>👨‍🍳 Sposób przygotowania</summary>
             <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
           </details>
-          ${(() => { const ow = r.ingredients.filter(ownsIngredient).map(i => i.label); return ow.length ? `<button class="cook-btn" onclick="openCookSheet('${encodeURIComponent(JSON.stringify(ow))}')">🍳 Ugotowane — odejmij składniki</button>` : ''; })()}
+          ${(() => { const ow = r.ingredients.filter(ownsIngredient).map(i => i.label); return ow.length ? `<button class="cook-btn" onclick="openCookSheet('${encodeURIComponent(JSON.stringify(ow))}')">🍳 Ugotowane — odejmij składniki</button>` : ''; })()}`;
+      return `
+        <div class="recipe-card ${collapsed ? 'rc-collapsed' : ''}">
+          <div class="recipe-head" onclick="toggleRecipe('${key.replace(/'/g, "\\'")}')">
+            <span class="recipe-emoji">${r.emoji}</span>
+            <div style="flex:1;min-width:0;">
+              <div class="recipe-title">${esc(r.name)}</div>
+              <span class="recipe-meal">${r.meal}</span>
+            </div>
+            <span class="recipe-badge ${full ? 'badge-full' : 'badge-partial'}">
+              ${full ? '✓ Masz wszystko' : e.have + '/' + e.needed}
+            </span>
+            <span class="rec-chev">${collapsed ? '▸' : '▾'}</span>
+          </div>
+          ${body}
         </div>`;
     }).join('');
 }
@@ -3032,25 +3058,18 @@ function recipeCardHtml(r, opts = {}) {
   raw.forEach(x => { const t = String(x || '').trim(); const k = t.toLowerCase(); if (t && !seen.has(k)) { seen.add(k); ings.push(t); } });
   const steps = Array.isArray(r.steps) ? r.steps : [];
   const tag = (opts.save !== undefined || r.source === 'ai') ? '✨ AI' : 'własny';
+  const key = opts.save !== undefined ? 'ai-' + opts.save : (opts.del !== undefined ? 'mine-' + opts.del : 'r-' + (r.name || ''));
+  const collapsed = collapsedRecipes.has(key);
   let actions = '';
-  if (opts.save !== undefined) actions = `<button class="recipe-act save" onclick="saveAIRecipe(${opts.save})">💾 Zapisz</button>`;
-  else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="deleteMyRecipe(${opts.del})">🗑</button>`;
+  if (opts.save !== undefined) actions = `<button class="recipe-act save" onclick="event.stopPropagation(); saveAIRecipe(${opts.save})">💾 Zapisz</button>`;
+  else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="event.stopPropagation(); deleteMyRecipe(${opts.del})">🗑</button>`;
 
   const missingList = ings.filter(i => !haveIngredient(i));
   const ownedList = ings.filter(i => haveIngredient(i));
   const haveN = ings.length - missingList.length;
   const fullHave = ings.length > 0 && missingList.length === 0;
 
-  return `
-    <div class="recipe-card">
-      <div class="recipe-head">
-        <span class="recipe-emoji">${esc(r.emoji || '🍽')}</span>
-        <div style="flex:1;min-width:0;">
-          <div class="recipe-title">${esc(r.name || 'Przepis')}</div>
-          <span class="recipe-meal">${esc(r.meal || '')} · ${tag}${ings.length ? ` · <b style="color:${fullHave ? 'var(--green-dark)' : 'var(--amber)'}">masz ${haveN}/${ings.length}</b>` : ''}</span>
-        </div>
-        ${actions}
-      </div>
+  const body = collapsed ? '' : `
       <ul class="ingredients">
         ${ings.map(i => {
           const has = haveIngredient(i);
@@ -3065,7 +3084,20 @@ function recipeCardHtml(r, opts = {}) {
         <ol>${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
         ${ings.length ? `<button class="full-btn secondary" style="margin-top:10px;" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(ings))}')">🛒 Wszystkie składniki do listy</button>` : ''}
       </details>
-      ${ownedList.length ? `<button class="cook-btn" onclick="openCookSheet('${encodeURIComponent(JSON.stringify(ownedList))}')">🍳 Ugotowane — odejmij składniki</button>` : ''}
+      ${ownedList.length ? `<button class="cook-btn" onclick="openCookSheet('${encodeURIComponent(JSON.stringify(ownedList))}')">🍳 Ugotowane — odejmij składniki</button>` : ''}`;
+
+  return `
+    <div class="recipe-card ${collapsed ? 'rc-collapsed' : ''}">
+      <div class="recipe-head" onclick="toggleRecipe('${key.replace(/'/g, "\\'")}')">
+        <span class="recipe-emoji">${esc(r.emoji || '🍽')}</span>
+        <div style="flex:1;min-width:0;">
+          <div class="recipe-title">${esc(r.name || 'Przepis')}</div>
+          <span class="recipe-meal">${esc(r.meal || '')} · ${tag}${ings.length ? ` · <b style="color:${fullHave ? 'var(--green-dark)' : 'var(--amber)'}">masz ${haveN}/${ings.length}</b>` : ''}</span>
+        </div>
+        ${actions}
+        <span class="rec-chev">${collapsed ? '▸' : '▾'}</span>
+      </div>
+      ${body}
     </div>`;
 }
 
@@ -3075,6 +3107,7 @@ function renderMyRecipes() {
 
   const mine = myRecipes.filter(r => activeMeal === 'Wszystkie' || r.meal === activeMeal);
   html += `<p class="panel-intro" style="margin-top:14px;">📖 Twoje zapisane przepisy${myRecipes.length ? ' (' + myRecipes.length + ')' : ''}:</p>`;
+  html += collapseAllBtn(mine.map(r => 'mine-' + r.id));
   html += mine.length
     ? mine.map(r => recipeCardHtml(r, { del: r.id })).join('')
     : `<div class="empty"><div class="emoji">📖</div><p>Brak zapisanych${activeMeal !== 'Wszystkie' ? ' dla: ' + activeMeal : ''}.<br>Zapisz przepis z 💡 Sugestii albo dodaj własny.</p></div>`;
