@@ -803,17 +803,22 @@
 
     .recipe-steps {
       margin-top: 12px;
-      border-top: 1px solid var(--border);
-      padding-top: 10px;
     }
     .recipe-steps summary {
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 13.5px;
+      font-weight: 700;
       color: var(--green-dark);
       cursor: pointer;
       list-style: none;
+      background: var(--green-light);
+      padding: 12px 14px;
+      border-radius: 11px;
+      text-align: center;
+      user-select: none;
     }
+    .recipe-steps summary:active { opacity: 0.8; }
     .recipe-steps summary::-webkit-details-marker { display: none; }
+    .recipe-steps[open] summary { margin-bottom: 4px; }
     .recipe-steps ol { margin: 10px 0 0 18px; font-size: 14px; line-height: 1.6; color: var(--text); }
     .recipe-steps ol li { margin-bottom: 4px; }
 
@@ -1044,8 +1049,8 @@
 
     /* UGOTOWANE — odejmij */
     .cook-btn {
-      width: 100%; margin-top: 10px;
-      padding: 12px; border: none; border-radius: 12px;
+      width: 100%; margin-top: 14px;
+      padding: 13px; border: none; border-radius: 12px;
       font-size: 14px; font-weight: 700; cursor: pointer;
       background: var(--gold); color: white;
       font-family: 'Poppins', sans-serif;
@@ -2776,6 +2781,7 @@ const COOK_SKIP_CATS = ['Przyprawy', 'Sosy/Pasty', 'Tłuszcze'];
 let cookRows = [];
 
 function openCookSheet(enc) {
+  if (!confirm('🍳 Ugotowałeś ten przepis?\nPokażę listę zużytych składników do odjęcia ze spiżarni.')) return;
   let labels = [];
   try { labels = JSON.parse(decodeURIComponent(enc)); } catch (e) {}
   const used = new Set();
