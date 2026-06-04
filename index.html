@@ -842,6 +842,16 @@
     }
     .miss-add:active { opacity: 0.8; }
 
+    .have-all {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--green-dark);
+      background: var(--green-light);
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+
     /* LISTA ZAKUPÓW */
     .shop-add { display: flex; gap: 8px; margin-bottom: 14px; }
     .shop-add input {
@@ -2513,16 +2523,21 @@ function haveIngredient(label) {
 }
 
 function recipeCardHtml(r, opts = {}) {
-  const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
-  const missing = Array.isArray(r.missing) ? r.missing : [];
+  // Połącz składniki przepisu + to, co AI uznało za brakujące → jedna lista (bez duplikatów)
+  const raw = (Array.isArray(r.ingredients) ? r.ingredients : []).concat(Array.isArray(r.missing) ? r.missing : []);
+  const seen = new Set();
+  const ings = [];
+  raw.forEach(x => { const t = String(x || '').trim(); const k = t.toLowerCase(); if (t && !seen.has(k)) { seen.add(k); ings.push(t); } });
   const steps = Array.isArray(r.steps) ? r.steps : [];
   const tag = (opts.save !== undefined || r.source === 'ai') ? '✨ AI' : 'własny';
   let actions = '';
   if (opts.save !== undefined) actions = `<button class="recipe-act save" onclick="saveAIRecipe(${opts.save})">💾 Zapisz</button>`;
   else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="deleteMyRecipe(${opts.del})">🗑</button>`;
-  const allForShop = ings.concat(missing);
-  const haveN = ings.filter(haveIngredient).length;
-  const fullHave = ings.length > 0 && haveN === ings.length;
+
+  const missingList = ings.filter(i => !haveIngredient(i));
+  const haveN = ings.length - missingList.length;
+  const fullHave = ings.length > 0 && missingList.length === 0;
+
   return `
     <div class="recipe-card">
       <div class="recipe-head">
@@ -2539,11 +2554,13 @@ function recipeCardHtml(r, opts = {}) {
           return `<li class="${has ? 'ing-have' : 'ing-miss'}"><span class="ing-mark">${has ? '✓' : '✗'}</span>${esc(i)}</li>`;
         }).join('')}
       </ul>
-      ${missing.length ? `<div class="miss-note">Brakuje: ${missing.map(esc).join(', ')}<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missing))}')">🛒 Do listy</button></div>` : ''}
+      ${missingList.length
+        ? `<div class="miss-note">Brakuje: ${missingList.length} składnik(ów)<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missingList))}')">🛒 Do listy</button></div>`
+        : `<div class="have-all">✓ Masz wszystkie składniki</div>`}
       <details class="recipe-steps">
         <summary>👨‍🍳 Sposób przygotowania</summary>
         <ol>${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
-        ${allForShop.length ? `<button class="full-btn secondary" style="margin-top:10px;" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(allForShop))}')">🛒 Wszystkie składniki do listy</button>` : ''}
+        ${ings.length ? `<button class="full-btn secondary" style="margin-top:10px;" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(ings))}')">🛒 Wszystkie składniki do listy</button>` : ''}
       </details>
     </div>`;
 }
