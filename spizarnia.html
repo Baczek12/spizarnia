@@ -1041,6 +1041,30 @@
       cursor: pointer;
       font-family: 'Quicksand', sans-serif;
     }
+
+    /* UGOTOWANE — odejmij */
+    .cook-btn {
+      width: 100%; margin-top: 10px;
+      padding: 12px; border: none; border-radius: 12px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      background: var(--gold); color: white;
+      font-family: 'Poppins', sans-serif;
+    }
+    .cook-btn:active { opacity: 0.85; }
+    .cook-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 0; border-bottom: 1px solid var(--border);
+    }
+    .cook-row.off { opacity: 0.45; }
+    .cook-check {
+      width: 26px; height: 26px; flex-shrink: 0;
+      border-radius: 8px; border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: white; background: white; cursor: pointer; font-size: 15px;
+    }
+    .cook-row:not(.off) .cook-check { background: var(--green); border-color: var(--green); }
+    .cook-name { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; }
+    .cook-have { font-size: 11px; color: var(--gray-dark); font-weight: 500; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -1210,6 +1234,19 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeRecipeForm()">Anuluj</button>
       <button class="btn btn-primary" onclick="saveRecipeForm()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: UGOTOWANE → ODEJMIJ ──────────────────────────────── -->
+<div class="modal-overlay" id="cookOverlay" onclick="closeCookIfOutside(event)">
+  <div class="modal">
+    <h2>🍳 Ugotowane — odejmij składniki</h2>
+    <p class="panel-intro" style="margin-bottom:8px;">Zaznacz, co realnie zużyłeś i w jakiej ilości. <b>Przyprawy, sosy i oleje pomijam domyślnie</b> (bierzesz odrobinę) — zaznacz, jeśli się skończyły.</p>
+    <div id="cookList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeCook()">Anuluj</button>
+      <button class="btn btn-primary" onclick="confirmCook()">Odejmij</button>
     </div>
   </div>
 </div>
@@ -2695,6 +2732,7 @@ function renderSuggestions() {
             <summary>👨‍🍳 Sposób przygotowania</summary>
             <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
           </details>
+          ${(() => { const ow = r.ingredients.filter(ownsIngredient).map(i => i.label); return ow.length ? `<button class="cook-btn" onclick="openCookSheet('${encodeURIComponent(JSON.stringify(ow))}')">🍳 Ugotowane — odejmij składniki</button>` : ''; })()}
         </div>`;
     }).join('');
 }
@@ -2720,6 +2758,73 @@ function haveIngredient(label) {
   });
 }
 
+// Znajdź pasujący produkt w spiżarni (do odejmowania po ugotowaniu)
+function findPantryMatch(label) {
+  let s = String(label || '').toLowerCase();
+  s = s.replace(/\([^)]*\)/g, ' ').replace(/[0-9.,/]+/g, ' ').replace(/[^a-ząćęłńóśźż\s]/g, ' ');
+  const words = s.split(/\s+/).filter(w => w.length >= 3 && !ING_STOP.has(w));
+  if (!words.length) return null;
+  return products.find(p => {
+    if ((Number(p.qty) || 0) <= 0) return false;
+    const hay = (p.name + ' ' + (p.brand || '')).toLowerCase();
+    return words.some(w => hay.includes(w) || (w.length >= 5 && hay.includes(w.slice(0, w.length - 2))));
+  }) || null;
+}
+
+// ─── UGOTOWANE → ODEJMIJ SKŁADNIKI ───────────────────────────────────────────
+const COOK_SKIP_CATS = ['Przyprawy', 'Sosy/Pasty', 'Tłuszcze'];
+let cookRows = [];
+
+function openCookSheet(enc) {
+  let labels = [];
+  try { labels = JSON.parse(decodeURIComponent(enc)); } catch (e) {}
+  const used = new Set();
+  cookRows = [];
+  labels.forEach(l => {
+    const m = findPantryMatch(l);
+    if (m && !used.has(m.id)) {
+      used.add(m.id);
+      cookRows.push({ id: m.id, deduct: !COOK_SKIP_CATS.includes(m.category), qty: 1 });
+    }
+  });
+  if (!cookRows.length) { showToast('Brak pasujących produktów do odjęcia'); return; }
+  renderCookList();
+  document.getElementById('cookOverlay').classList.add('open');
+}
+
+function renderCookList() {
+  document.getElementById('cookList').innerHTML = cookRows.map((row, i) => {
+    const p = products.find(x => x.id === row.id);
+    if (!p) return '';
+    return `
+      <div class="cook-row ${row.deduct ? '' : 'off'}">
+        <div class="cook-check" onclick="toggleCook(${i})">${row.deduct ? '✓' : ''}</div>
+        <div class="cook-name">${productEmoji(p)} ${esc(p.name)}<div class="cook-have">masz: ${p.qty} ${esc(p.unit)}${COOK_SKIP_CATS.includes(p.category) ? ' · pomijam (odrobina)' : ''}</div></div>
+        <div class="qty-controls shop-qty">
+          <button class="qty-btn minus" onclick="changeCookQty(${i}, -1)">−</button>
+          <span class="qty-num">${row.qty}</span>
+          <button class="qty-btn plus" onclick="changeCookQty(${i}, 1)">+</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+function toggleCook(i) { cookRows[i].deduct = !cookRows[i].deduct; renderCookList(); }
+function changeCookQty(i, d) { cookRows[i].qty = Math.max(1, cookRows[i].qty + d); renderCookList(); }
+function closeCook() { document.getElementById('cookOverlay').classList.remove('open'); }
+function closeCookIfOutside(e) { if (e.target === document.getElementById('cookOverlay')) closeCook(); }
+
+function confirmCook() {
+  let n = 0;
+  cookRows.forEach(row => {
+    if (!row.deduct) return;
+    const p = products.find(x => x.id === row.id);
+    if (p) { p.qty = Math.max(0, (Number(p.qty) || 0) - row.qty); p.date = todayStr(); n++; }
+  });
+  if (n) { save(); render(); if (activeView === 'recipes') renderRecipes(); }
+  closeCook();
+  showToast(n ? `🍳 Odjęto ${n} składnik(ów) ze spiżarni` : 'Nic nie odjęto');
+}
+
 function recipeCardHtml(r, opts = {}) {
   // Połącz składniki przepisu + to, co AI uznało za brakujące → jedna lista (bez duplikatów)
   const raw = (Array.isArray(r.ingredients) ? r.ingredients : []).concat(Array.isArray(r.missing) ? r.missing : []);
@@ -2733,6 +2838,7 @@ function recipeCardHtml(r, opts = {}) {
   else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="deleteMyRecipe(${opts.del})">🗑</button>`;
 
   const missingList = ings.filter(i => !haveIngredient(i));
+  const ownedList = ings.filter(i => haveIngredient(i));
   const haveN = ings.length - missingList.length;
   const fullHave = ings.length > 0 && missingList.length === 0;
 
@@ -2760,6 +2866,7 @@ function recipeCardHtml(r, opts = {}) {
         <ol>${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
         ${ings.length ? `<button class="full-btn secondary" style="margin-top:10px;" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(ings))}')">🛒 Wszystkie składniki do listy</button>` : ''}
       </details>
+      ${ownedList.length ? `<button class="cook-btn" onclick="openCookSheet('${encodeURIComponent(JSON.stringify(ownedList))}')">🍳 Ugotowane — odejmij składniki</button>` : ''}
     </div>`;
 }
 
