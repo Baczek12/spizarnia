@@ -7,23 +7,28 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Spiżarnia">
-  <meta name="theme-color" content="#16a34a">
+  <meta name="theme-color" content="#2f6b3f">
   <title>🥫 Spiżarnia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
     :root {
-      --green: #16a34a;
-      --green-light: #dcfce7;
-      --green-dark: #15803d;
-      --amber: #d97706;
-      --amber-light: #fef3c7;
-      --red: #dc2626;
-      --red-light: #fee2e2;
-      --gray: #f4f5f7;
-      --gray-dark: #6b7280;
-      --text: #111827;
-      --border: #e9ebef;
+      --green: #2f6b3f;
+      --green-light: #e6ede1;
+      --green-dark: #23502f;
+      --gold: #8f8a3c;
+      --gold-light: #ece8d2;
+      --amber: #b4862a;
+      --amber-light: #f4ecd6;
+      --red: #c0492f;
+      --red-light: #f6e3dc;
+      --gray: #f5f2ea;
+      --gray-dark: #8a8576;
+      --text: #2b2b26;
+      --border: #e7e2d4;
       --white: #ffffff;
       --shadow-sm: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
       --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
@@ -38,7 +43,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--gray);
       color: var(--text);
       min-height: 100vh;
@@ -47,6 +52,10 @@
       padding-bottom: calc(72px + var(--safe-bottom));
       -webkit-font-smoothing: antialiased;
     }
+
+    /* Nagłówki i nazwy — Poppins */
+    .brand-name, .product-name, .modal h2, .recipe-title,
+    .category-label, .full-btn, .btn { font-family: 'Poppins', sans-serif; }
 
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(8px); }
@@ -59,56 +68,61 @@
 
     /* HEADER */
     header {
-      background: linear-gradient(135deg, #16a34a 0%, #15803d 60%, #0f6b33 100%);
-      color: white;
-      padding: calc(18px + var(--safe-top)) 16px 18px;
+      background: linear-gradient(180deg, #fbfaf3 0%, #f3eee1 100%);
+      color: var(--green-dark);
+      padding: calc(16px + var(--safe-top)) 16px 16px;
       position: sticky;
       top: 0;
       z-index: 100;
-      box-shadow: 0 6px 20px rgba(21,128,61,0.28);
+      box-shadow: 0 4px 18px rgba(120,110,60,0.10);
+      border-bottom: 1px solid #ece6d4;
       border-radius: 0 0 22px 22px;
     }
 
-    header h1 {
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: -0.4px;
+    .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 11px;
+    }
+    .brand-mark { height: 44px; width: auto; flex-shrink: 0; }
+    .brand-name {
+      font-size: 23px;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--green-dark);
     }
 
     header p {
-      font-size: 12.5px;
-      opacity: 0.9;
-      margin-top: 3px;
+      font-size: 12px;
+      color: #93917c;
+      margin-top: 7px;
     }
     #syncStatus { display: inline-flex; align-items: center; }
 
     .search-bar {
-      margin-top: 14px;
+      margin-top: 13px;
       position: relative;
     }
 
     .search-bar input {
       width: 100%;
       padding: 12px 16px 12px 42px;
-      border: none;
+      border: 1.5px solid #e6e0cf;
       border-radius: 14px;
       font-size: 15px;
-      background: rgba(255,255,255,0.18);
-      backdrop-filter: blur(4px);
-      color: white;
+      font-family: 'Quicksand', sans-serif;
+      background: #ffffff;
+      color: var(--text);
       outline: none;
-      box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.18);
-      transition: background 0.15s, box-shadow 0.15s;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
     .search-bar input:focus {
-      background: rgba(255,255,255,0.28);
-      box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.5);
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(47,107,63,0.12);
     }
 
-    .search-bar input::placeholder { color: rgba(255,255,255,0.75); }
+    .search-bar input::placeholder { color: #aca896; }
 
     .search-icon {
       position: absolute;
@@ -117,7 +131,7 @@
       transform: translateY(-50%);
       font-size: 16px;
       pointer-events: none;
-      opacity: 0.9;
+      opacity: 0.65;
     }
 
     /* FILTER TABS */
@@ -347,14 +361,14 @@
       right: 20px;
       width: 60px;
       height: 60px;
-      background: linear-gradient(135deg, #22c55e, #15803d);
+      background: linear-gradient(135deg, #3f8a52, #23502f);
       color: white;
       border: none;
       border-radius: 50%;
       font-size: 30px;
       font-weight: 300;
       cursor: pointer;
-      box-shadow: 0 8px 22px rgba(22, 163, 74, 0.45);
+      box-shadow: 0 8px 22px rgba(35, 80, 47, 0.4);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -779,7 +793,31 @@
 <body>
 
 <header>
-  <h1>🥫 Spiżarnia</h1>
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 84 66" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Spiżarnia">
+      <defs>
+        <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#aca54e"/>
+          <stop offset="1" stop-color="#7d7b36"/>
+        </linearGradient>
+      </defs>
+      <g stroke="url(#gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <path d="M18 45 A24 24 0 0 1 66 45"/>
+        <path d="M10 57 H74"/>
+        <path d="M38 35 C34 35 31.5 38 31.5 42.5 L31.5 50 C31.5 53.5 35 55.5 42 55.5 C49 55.5 52.5 53.5 52.5 50 L52.5 42.5 C52.5 38 50 35 46 35 Z"/>
+        <path d="M33 35 q4.5 -6 9 0 q4.5 6 9 0"/>
+        <path d="M34.5 40 H49.5"/>
+        <path d="M58 55.5 L58 42 C58 39.5 59.5 38.5 59.5 36 L59.5 31 L64.5 31 L64.5 36 C64.5 38.5 66 39.5 66 42 L66 55.5"/>
+        <path d="M59.5 31 L59.5 28 L64.5 28 L64.5 31"/>
+        <path d="M27 57 L16 40"/>
+        <path d="M20.5 49 q-4 -1 -4.6 -5.6"/>
+        <path d="M22.7 45.6 q-4 -1 -4.6 -5.6"/>
+        <path d="M24.9 42.2 q-4 -1 -4.6 -5.6"/>
+        <path d="M16.2 40.2 q-1.4 -3 0.8 -5.2"/>
+      </g>
+    </svg>
+    <span class="brand-name">Spiżarnia</span>
+  </div>
   <p id="lastUpdate">Ostatnia aktualizacja: 2026-06-04</p>
   <p id="syncStatus" style="font-size:12px;opacity:0.85;margin-top:2px;">💾 Lokalnie</p>
   <div class="search-bar" id="searchBar">
@@ -1077,10 +1115,10 @@ const CATEGORY_COLORS = {
   'Owoce': '#db2777', 'Przyprawy': '#d97706', 'Makarony i kasze': '#b45309',
   'Pieczywo': '#a16207', 'Napoje': '#2563eb', 'Kawa / Herbata': '#78451f',
   'Mrożonki': '#0ea5e9', 'Do pieczenia': '#c026d3',
-  'Słodycze': '#9333ea', 'Słone przekąski': '#f59e0b', 'Inne': '#6b7280',
-  'Wszystkie': '#16a34a'
+  'Słodycze': '#9333ea', 'Słone przekąski': '#d98324', 'Inne': '#8a8576',
+  'Wszystkie': '#2f6b3f'
 };
-function catColor(c) { return CATEGORY_COLORS[c] || '#16a34a'; }
+function catColor(c) { return CATEGORY_COLORS[c] || '#2f6b3f'; }
 
 function getCategories() {
   return ['Wszystkie', ...new Set(products.map(p => p.category))];
