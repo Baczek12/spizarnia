@@ -971,6 +971,75 @@
     }
     .mood:active { transform: scale(0.95); }
     .mood.active { background: var(--gold); border-color: var(--gold); color: white; }
+
+    /* LOGOWANIE */
+    .logout-btn {
+      position: absolute;
+      top: calc(14px + var(--safe-top));
+      right: 16px;
+      width: 36px; height: 36px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(35,80,47,0.08);
+      color: var(--green-dark);
+      font-size: 18px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+    .logout-btn:active { background: rgba(35,80,47,0.18); }
+
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: linear-gradient(180deg, #fbfaf3 0%, #ede7d6 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      padding-top: calc(24px + var(--safe-top));
+    }
+    .auth-box {
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      animation: fadeUp 0.35s ease both;
+    }
+    .auth-logo { height: 120px; width: auto; }
+    .auth-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 26px; font-weight: 600;
+      letter-spacing: 3px;
+      color: var(--green-dark);
+      margin-top: 4px;
+    }
+    .auth-sub { font-size: 14px; color: var(--gray-dark); margin: 8px 0 22px; }
+    .auth-box input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1.5px solid #e1dbc9;
+      border-radius: 14px;
+      font-size: 16px;
+      font-family: 'Quicksand', sans-serif;
+      outline: none;
+      background: white;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+    .auth-box input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(47,107,63,0.12); }
+    .auth-box .full-btn { margin-top: 6px; }
+    .auth-msg { font-size: 13px; min-height: 18px; margin: 2px 0 6px; font-weight: 600; }
+    .auth-msg.err { color: var(--red); }
+    .auth-msg.ok { color: var(--green-dark); }
+    .auth-switch {
+      margin-top: 14px;
+      border: none; background: none;
+      color: var(--green-dark);
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      font-family: 'Quicksand', sans-serif;
+    }
   </style>
 </head>
 <body>
@@ -980,6 +1049,7 @@
     <img class="brand-mark" src="brand.png" alt="Spiżarnia" width="70" height="50">
     <span class="brand-name">Spiżarnia</span>
   </div>
+  <button class="logout-btn" id="logoutBtn" onclick="doLogout()" style="display:none" title="Wyloguj">⎋</button>
   <p id="lastUpdate">Ostatnia aktualizacja: 2026-06-04</p>
   <p id="syncStatus" style="font-size:12px;opacity:0.85;margin-top:2px;">💾 Lokalnie</p>
   <div class="search-bar" id="searchBar">
@@ -1143,6 +1213,22 @@
   </div>
 </div>
 
+<!-- ─── EKRAN LOGOWANIA ─────────────────────────────────────────── -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <img src="brand.png" class="auth-logo" alt="Spiżarnia">
+    <div class="auth-title">SPIŻARNIA</div>
+    <p class="auth-sub" id="authSub">Zaloguj się, aby zobaczyć swoją spiżarnię</p>
+    <input type="email" id="authEmail" placeholder="E-mail" autocomplete="email" autocapitalize="off"
+           onkeydown="if(event.key==='Enter')document.getElementById('authPass').focus()">
+    <input type="password" id="authPass" placeholder="Hasło" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')authPrimary()">
+    <div class="auth-msg" id="authMsg"></div>
+    <button class="full-btn" id="authPrimary" onclick="authPrimary()">Zaloguj się</button>
+    <button class="auth-switch" id="authSwitch" onclick="toggleAuthMode()">Nie masz konta? Załóż konto</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Klient Supabase (synchronizacja w chmurze) -->
@@ -1264,11 +1350,107 @@ function setSyncStatus(state) {
   el.textContent = map[state] || '';
 }
 
+function ensureSupa() {
+  if (!supa && CLOUD_ENABLED && window.supabase) {
+    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return supa;
+}
+
+// ─── LOGOWANIE (Supabase Auth) ───────────────────────────────────────────────
+let authMode = 'login';   // 'login' | 'signup'
+let cloudStarted = false;
+
+function showLogin() {
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+function hideLogin() {
+  document.getElementById('authOverlay').style.display = 'none';
+}
+function setAuthMsg(msg, cls) {
+  const el = document.getElementById('authMsg');
+  el.textContent = msg || '';
+  el.className = 'auth-msg' + (cls ? ' ' + cls : '');
+}
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'signup' : 'login';
+  document.getElementById('authSub').textContent = authMode === 'login'
+    ? 'Zaloguj się, aby zobaczyć swoją spiżarnię'
+    : 'Załóż konto — domownicy widzą tę samą spiżarnię';
+  document.getElementById('authPrimary').textContent = authMode === 'login' ? 'Zaloguj się' : 'Załóż konto';
+  document.getElementById('authSwitch').textContent = authMode === 'login'
+    ? 'Nie masz konta? Załóż konto' : 'Masz już konto? Zaloguj się';
+  setAuthMsg('');
+}
+function authPrimary() { authMode === 'login' ? doLogin() : doSignup(); }
+
+function authError(m) {
+  m = String(m || '');
+  if (/invalid login/i.test(m)) return 'Błędny e-mail lub hasło';
+  if (/already registered|already exists/i.test(m)) return 'Konto już istnieje — zaloguj się';
+  if (/password should be at least/i.test(m)) return 'Hasło za krótkie (min. 6 znaków)';
+  if (/unable to validate email|invalid email/i.test(m)) return 'Niepoprawny e-mail';
+  return m;
+}
+
+async function doLogin() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPass').value;
+  if (!email || !pass) { setAuthMsg('Podaj e-mail i hasło', 'err'); return; }
+  if (!ensureSupa()) { setAuthMsg('Brak połączenia z chmurą', 'err'); return; }
+  setAuthMsg('Logowanie…');
+  const { error } = await supa.auth.signInWithPassword({ email, password: pass });
+  if (error) setAuthMsg(authError(error.message), 'err');
+  // sukces obsłuży onAuthStateChange
+}
+
+async function doSignup() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPass').value;
+  if (!email || !pass) { setAuthMsg('Podaj e-mail i hasło', 'err'); return; }
+  if (pass.length < 6) { setAuthMsg('Hasło min. 6 znaków', 'err'); return; }
+  if (!ensureSupa()) { setAuthMsg('Brak połączenia z chmurą', 'err'); return; }
+  setAuthMsg('Zakładanie konta…');
+  const { data, error } = await supa.auth.signUp({ email, password: pass });
+  if (error) { setAuthMsg(authError(error.message), 'err'); return; }
+  if (!data.session) {
+    const { error: e2 } = await supa.auth.signInWithPassword({ email, password: pass });
+    if (e2) setAuthMsg('Konto utworzone. Zaloguj się.', 'ok');
+  }
+}
+
+async function doLogout() {
+  if (!confirm('Wylogować się?')) return;
+  if (supa) await supa.auth.signOut();
+}
+
+async function initAuth() {
+  if (!CLOUD_ENABLED || !window.supabase) {
+    // bez chmury — działaj lokalnie, bez logowania
+    setSyncStatus('local');
+    hideLogin();
+    initCloud();
+    return;
+  }
+  ensureSupa();
+  supa.auth.onAuthStateChange((event, session) => {
+    if (session && session.user) {
+      hideLogin();
+      document.getElementById('logoutBtn').style.display = 'flex';
+      if (!cloudStarted) { cloudStarted = true; initCloud(); }
+    } else {
+      if (event === 'SIGNED_OUT') { cloudStarted = false; setSyncStatus('local'); }
+      showLogin();
+    }
+  });
+}
+
 async function initCloud() {
   if (!CLOUD_ENABLED) { setSyncStatus('local'); return; }
   if (!window.supabase) { setSyncStatus('offline'); return; }
 
-  supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  ensureSupa();
   setSyncStatus('connecting');
 
   try {
@@ -2669,7 +2851,7 @@ function saveRecipeForm() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 render();
-initCloud();
+initAuth();
 </script>
 </body>
 </html>
