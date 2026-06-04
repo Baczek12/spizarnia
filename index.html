@@ -914,6 +914,10 @@
       letter-spacing: 0.5px; color: var(--gray-dark);
       margin: 18px 0 8px; padding-left: 2px;
     }
+    .shop-qty { flex-shrink: 0; }
+    .shop-qty .qty-btn { width: 30px; height: 30px; font-size: 18px; }
+    .shop-qty .qty-num { min-width: 20px; font-size: 14px; }
+    .shop-item.done .shop-qty { opacity: 0.5; }
 
     /* PRZEPISY: przełącznik Moje/Sugestie */
     .seg {
@@ -1825,6 +1829,11 @@ function renderShopping() {
     <div class="shop-item ${s.done ? 'done' : ''}">
       <div class="shop-check" onclick="toggleShopItem(${s.id})">${s.done ? '✓' : ''}</div>
       <div class="shop-name" onclick="toggleShopItem(${s.id})">${esc(s.name)}</div>
+      <div class="qty-controls shop-qty">
+        <button class="qty-btn minus" onclick="changeShopQty(${s.id}, -1)">−</button>
+        <span class="qty-num">${s.qty || 1}</span>
+        <button class="qty-btn plus" onclick="changeShopQty(${s.id}, 1)">+</button>
+      </div>
       <button class="shop-del" onclick="deleteShopItem(${s.id})">🗑</button>
     </div>`;
   let html = undone.map(item).join('');
@@ -1841,7 +1850,7 @@ function addShopItem() {
   const inp = document.getElementById('shopInput');
   const name = inp.value.trim();
   if (!name) return;
-  shopping.push({ id: shopNextId++, name, done: false });
+  shopping.push({ id: shopNextId++, name, qty: 1, done: false });
   saveShop(); renderShopping();
   inp.value = ''; inp.focus();
 }
@@ -1849,6 +1858,12 @@ function toggleShopItem(id) {
   const s = shopping.find(x => x.id === id);
   if (!s) return;
   s.done = !s.done;
+  saveShop(); renderShopping();
+}
+function changeShopQty(id, delta) {
+  const s = shopping.find(x => x.id === id);
+  if (!s) return;
+  s.qty = Math.max(1, (Number(s.qty) || 1) + delta);
   saveShop(); renderShopping();
 }
 function deleteShopItem(id) {
@@ -1863,7 +1878,7 @@ function clearDoneShop() {
 function moveDoneToPantry() {
   const done = shopping.filter(s => s.done);
   if (!done.length) return;
-  done.forEach(s => upsertProduct({ name: s.name, brand: '', category: guessCategory(s.name.toLowerCase()), qty: 1, unit: 'szt.' }));
+  done.forEach(s => upsertProduct({ name: s.name, brand: '', category: guessCategory(s.name.toLowerCase()), qty: Number(s.qty) || 1, unit: 'szt.' }));
   shopping = shopping.filter(s => !s.done);
   save(); render();
   saveShop(); renderShopping();
