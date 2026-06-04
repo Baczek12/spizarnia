@@ -222,6 +222,27 @@
       letter-spacing: 0;
     }
     .category-label:first-child { margin-top: 0; }
+    .category-label.clickable { cursor: pointer; user-select: none; }
+    .category-label.clickable:active { opacity: 0.65; }
+    .cat-chev {
+      font-size: 11px;
+      width: 12px;
+      text-align: center;
+      color: var(--accent, var(--green));
+      flex-shrink: 0;
+    }
+    .collapse-all {
+      align-self: flex-start;
+      border: none;
+      background: none;
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0 0 2px;
+      font-family: 'Quicksand', sans-serif;
+    }
+    .collapse-all:active { opacity: 0.7; }
 
     .product-card {
       background: white;
@@ -1915,6 +1936,19 @@ let expiringFilter = false;
 function toggleExpiring() { expiringFilter = !expiringFilter; render(); }
 function antiWasteFromBanner() { setView('recipes'); recipeMode = 'sugg'; setTimeout(generateAntiWaste, 50); }
 
+// Zwijanie kategorii
+let collapsedCats = new Set(JSON.parse(localStorage.getItem('spizarnia_collapsed') || '[]'));
+function saveCollapsed() { localStorage.setItem('spizarnia_collapsed', JSON.stringify([...collapsedCats])); }
+function toggleCat(c) {
+  if (collapsedCats.has(c)) collapsedCats.delete(c); else collapsedCats.add(c);
+  saveCollapsed(); render();
+}
+function setAllCollapsed(state) {
+  if (state) getCategories().filter(c => c !== 'Wszystkie').forEach(c => collapsedCats.add(c));
+  else collapsedCats.clear();
+  saveCollapsed(); render();
+}
+
 function getCategories() {
   return ['Wszystkie', ...new Set(products.map(p => p.category))];
 }
@@ -1973,10 +2007,21 @@ function render() {
     grouped[p.category].push(p);
   });
 
+  const q = document.getElementById('searchInput').value.trim();
+  const collapsible = activeTab === 'Wszystkie' && !q && !expiringFilter;
+
   let html = banner;
+  if (collapsible && Object.keys(grouped).length > 1) {
+    const allCol = Object.keys(grouped).every(c => collapsedCats.has(c));
+    html += `<button class="collapse-all" onclick="setAllCollapsed(${allCol ? 'false' : 'true'})">${allCol ? '▾ Rozwiń wszystkie' : '▸ Zwiń wszystkie'}</button>`;
+  }
   for (const [cat, items] of Object.entries(grouped)) {
     if (activeTab === 'Wszystkie') {
-      html += `<div class="category-label" style="--accent:${catColor(cat)}"><span class="cat-dot"></span>${CATEGORY_ICONS[cat] || ''} ${esc(cat)} <span class="cat-n">${items.length}</span></div>`;
+      const collapsed = collapsible && collapsedCats.has(cat);
+      html += `<div class="category-label ${collapsible ? 'clickable' : ''}" style="--accent:${catColor(cat)}" ${collapsible ? `onclick="toggleCat('${cat.replace(/'/g, "\\'")}')"` : ''}>`
+        + (collapsible ? `<span class="cat-chev">${collapsed ? '▸' : '▾'}</span>` : `<span class="cat-dot"></span>`)
+        + `${CATEGORY_ICONS[cat] || ''} ${esc(cat)} <span class="cat-n">${items.length}</span></div>`;
+      if (collapsed) continue;
     }
     items.forEach(p => {
       const e = expiryInfo(p.expiry);
