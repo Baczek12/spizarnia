@@ -765,6 +765,8 @@
       <option value="Mięso">Mięso</option>
       <option value="Owoce">Owoce</option>
       <option value="Przyprawy">Przyprawy</option>
+      <option value="Słodycze">Słodycze</option>
+      <option value="Słone przekąski">Słone przekąski</option>
       <option value="Inne">Inne</option>
     </select>
     <div class="modal-actions">
@@ -944,7 +946,8 @@ function subscribeCloud() {
 const CATEGORY_ICONS = {
   'Przetwory': '🥫', 'Sosy/Pasty': '🫙', 'Nabiał': '🧀',
   'Suche': '🌾', 'Tłuszcze': '🫒', 'Warzywa': '🥦',
-  'Mięso': '🥩', 'Owoce': '🍑', 'Przyprawy': '🧂', 'Inne': '📦'
+  'Mięso': '🥩', 'Owoce': '🍑', 'Przyprawy': '🧂',
+  'Słodycze': '🍫', 'Słone przekąski': '🍿', 'Inne': '📦'
 };
 
 function getCategories() {
@@ -1378,6 +1381,8 @@ function guessUnit(low) {
 }
 
 const CAT_KEYWORDS = {
+  'Słone przekąski': ['chips','chipsy','chrupki','chrupek','paluszk','precl','precel','krakers','cracker','popcorn','nachos','orzeszk','prażyn','prazyn','cheet','crunchips','pringles','lays','tortilla chips','snack','przekąsk','przekask'],
+  'Słodycze': ['czekolad','baton','cukierk','żelk','zelk','lizak','ciastk','herbatnik','wafel','wafl','lody','lód','deser','pralin','krówk','krowk','michałk','michalk','snicker','milka','kinder','draż','draz','toffi','chałw','chalw','marmolad','beza','ptasie mleczko','sezamki'],
   'Nabiał': ['mleko','ser','jogurt','śmietan','smietan','masło','maslo','twaróg','twarog','mozzarella','kefir','jaj'],
   'Warzywa': ['pomidor','ogórek','ogorek','cebula','marchew','ziemniak','papryka','sałat','salat','czosnek','brokuł','brokul','kapust','pieczark'],
   'Owoce': ['jabłk','jablk','banan','cytryn','pomarańcz','pomarancz','truskaw','winogron','gruszk','brzoskwin','śliw','sliw'],
