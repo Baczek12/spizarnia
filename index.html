@@ -2364,6 +2364,26 @@ function renderSuggestions() {
 }
 
 // ─── MOJE PRZEPISY + AI ──────────────────────────────────────────────────────
+// Czy mam składnik (z luźnego tekstu, np. "Sos sojowy", "Mąka ziemniaczana / skrobia")?
+const ING_STOP = new Set(['i','do','ze','lub','oraz','na','ok','np','szt','garść','garsc','plus','albo','dla','smaku','według','wedlug','opcjonalnie','świeże','swieze','świeży','swiezy','mielona','mielony','mielone','cały','cala','całe','gram','gramów','gramow','łyżki','łyżka','łyżeczka','łyżeczki','szklanka','szklanki','sztuki','sztuk','duża','duzy','duże','mała','maly','małe']);
+function haveIngredient(label) {
+  let s = String(label || '').toLowerCase();
+  s = s.replace(/\([^)]*\)/g, ' ');          // usuń (…)
+  s = s.replace(/[0-9.,/]+/g, ' ');           // usuń liczby
+  s = s.replace(/[^a-ząćęłńóśźż\s]/g, ' ');   // tylko litery
+  const words = s.split(/\s+/).filter(w => w.length >= 3 && !ING_STOP.has(w));
+  if (!words.length) return false;
+  return products.some(p => {
+    if ((Number(p.qty) || 0) <= 0) return false;
+    const hay = (p.name + ' ' + (p.brand || '')).toLowerCase();
+    return words.some(w => {
+      if (hay.includes(w)) return true;
+      if (w.length >= 5) { const stem = w.slice(0, w.length - 2); return hay.includes(stem); }
+      return false;
+    });
+  });
+}
+
 function recipeCardHtml(r, opts = {}) {
   const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
   const missing = Array.isArray(r.missing) ? r.missing : [];
@@ -2373,18 +2393,23 @@ function recipeCardHtml(r, opts = {}) {
   if (opts.save !== undefined) actions = `<button class="recipe-act save" onclick="saveAIRecipe(${opts.save})">💾 Zapisz</button>`;
   else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="deleteMyRecipe(${opts.del})">🗑</button>`;
   const allForShop = ings.concat(missing);
+  const haveN = ings.filter(haveIngredient).length;
+  const fullHave = ings.length > 0 && haveN === ings.length;
   return `
     <div class="recipe-card">
       <div class="recipe-head">
         <span class="recipe-emoji">${esc(r.emoji || '🍽')}</span>
         <div style="flex:1;min-width:0;">
           <div class="recipe-title">${esc(r.name || 'Przepis')}</div>
-          <span class="recipe-meal">${esc(r.meal || '')} · ${tag}</span>
+          <span class="recipe-meal">${esc(r.meal || '')} · ${tag}${ings.length ? ` · <b style="color:${fullHave ? 'var(--green-dark)' : 'var(--amber)'}">masz ${haveN}/${ings.length}</b>` : ''}</span>
         </div>
         ${actions}
       </div>
       <ul class="ingredients">
-        ${ings.map(i => `<li class="ing-have"><span class="ing-mark">•</span>${esc(i)}</li>`).join('')}
+        ${ings.map(i => {
+          const has = haveIngredient(i);
+          return `<li class="${has ? 'ing-have' : 'ing-miss'}"><span class="ing-mark">${has ? '✓' : '✗'}</span>${esc(i)}</li>`;
+        }).join('')}
       </ul>
       ${missing.length ? `<div class="miss-note">Brakuje: ${missing.map(esc).join(', ')}<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missing))}')">🛒 Do listy</button></div>` : ''}
       <details class="recipe-steps">
