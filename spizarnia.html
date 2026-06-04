@@ -1350,7 +1350,9 @@ function clearReceipt() {
 }
 
 // ─── PRZEPISY (lokalna baza, dopasowanie do zapasów) ─────────────────────────
-// basic: składnik podstawowy (zakładamy że jest w domu) — nie liczy się jako brak
+// Każdy składnik jest śledzony i wymagany (spiżarnia ma docelowo zawierać wszystko:
+// przyprawy, warzywa, owoce itp.). optional: true = tylko bonus, nie liczy się jako brak.
+// Flaga basic jest ignorowana (pozostałość — traktowana jak zwykły wymagany składnik).
 const RECIPES = [
   {
     name: 'Makaron z pesto', emoji: '🍝', meal: 'Obiad',
@@ -1539,7 +1541,7 @@ function ownsIngredient(ing) {
 function evalRecipe(r) {
   let have = 0, needed = 0, missing = [];
   r.ingredients.forEach(ing => {
-    if (ing.basic) return;            // podstawowe — pomijamy w liczeniu
+    // Wszystkie składniki są śledzone i wymagane (spiżarnia ma zawierać wszystko).
     const owned = ownsIngredient(ing);
     if (ing.optional) { if (owned) have++; return; } // opcjonalne tylko jako bonus
     needed++;
@@ -1589,7 +1591,6 @@ function renderRecipes() {
           </div>
           <ul class="ingredients">
             ${r.ingredients.map(ing => {
-              if (ing.basic) return `<li class="ing-basic"><span class="ing-mark">•</span>${esc(ing.label)} <span style="font-size:11px;">(podstawowy)</span></li>`;
               const owned = ownsIngredient(ing);
               const cls = owned ? 'ing-have' : (ing.optional ? 'ing-basic' : 'ing-miss');
               const mark = owned ? '✓' : (ing.optional ? '○' : '✗');
