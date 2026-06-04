@@ -823,6 +823,86 @@
       background: var(--amber-light);
       padding: 6px 10px;
       border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .miss-add {
+      margin-left: auto;
+      border: none;
+      background: var(--green);
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .miss-add:active { opacity: 0.8; }
+
+    /* LISTA ZAKUPÓW */
+    .shop-add { display: flex; gap: 8px; margin-bottom: 14px; }
+    .shop-add input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: 15px;
+      font-family: 'Quicksand', sans-serif;
+      outline: none;
+      background: white;
+    }
+    .shop-add input:focus { border-color: var(--green); }
+    .shop-add-btn {
+      width: 48px;
+      border: none;
+      border-radius: 12px;
+      background: var(--green);
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .shop-add-btn:active { background: var(--green-dark); }
+
+    .shop-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: white;
+      border: 1px solid #f0f1f4;
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      box-shadow: var(--shadow-sm);
+      animation: popIn 0.18s ease both;
+    }
+    .shop-check {
+      width: 26px; height: 26px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: white; cursor: pointer;
+      background: white;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .shop-item.done .shop-check { background: var(--green); border-color: var(--green); }
+    .shop-name { flex: 1; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .shop-item.done .shop-name { text-decoration: line-through; color: var(--gray-dark); font-weight: 500; }
+    .shop-del {
+      width: 32px; height: 32px;
+      border: none; background: transparent;
+      color: #c0c4cc; border-radius: 9px; font-size: 15px; cursor: pointer;
+      flex-shrink: 0; transition: background 0.12s, color 0.12s;
+    }
+    .shop-del:active { background: var(--red-light); color: var(--red); }
+    .shop-divider {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--gray-dark);
+      margin: 18px 0 8px; padding-left: 2px;
     }
   </style>
 </head>
@@ -882,6 +962,17 @@
   </div>
 </section>
 
+<!-- ─── VIEW: ZAKUPY ─────────────────────────────────────────────── -->
+<section class="view" id="view-shopping">
+  <div class="panel">
+    <div class="shop-add">
+      <input id="shopInput" type="text" placeholder="Dodaj do listy zakupów…" onkeydown="if(event.key==='Enter')addShopItem()">
+      <button class="shop-add-btn" onclick="addShopItem()">＋</button>
+    </div>
+    <div id="shopList"></div>
+  </div>
+</section>
+
 <button class="fab" id="fab" onclick="openModal()">＋</button>
 
 <!-- ─── BOTTOM NAV ──────────────────────────────────────────────── -->
@@ -891,6 +982,9 @@
   </button>
   <button class="nav-item" id="nav-recipes" onclick="setView('recipes')">
     <span class="nav-ico">🍳</span>Przepisy
+  </button>
+  <button class="nav-item" id="nav-shopping" onclick="setView('shopping')">
+    <span class="nav-ico">🛒</span>Zakupy
   </button>
   <button class="nav-item" id="nav-receipt" onclick="setView('receipt')">
     <span class="nav-ico">🧾</span>Paragon
@@ -987,6 +1081,12 @@ let activeView = 'pantry';
 let parsedItems = [];
 let nextId = Math.max(...products.map(p => p.id), 0) + 1;
 
+// Lista zakupów
+let shopping = JSON.parse(localStorage.getItem('spizarnia_shop_v1') || '[]');
+let shopNextId = Math.max(0, ...shopping.map(s => s.id || 0)) + 1;
+let lastShopJSON = '';
+const SHOP_ID = 'shopping';
+
 // ─── KONFIGURACJA SUPABASE ───────────────────────────────────────────────────
 // 1. Wejdź na https://supabase.com → New project (darmowy).
 // 2. Settings → API → skopiuj "Project URL" oraz klucz "anon public".
@@ -1058,11 +1158,56 @@ async function initCloud() {
       cloudReady = true;
       await pushToCloud(true);
     }
+    await loadShopping();
     subscribeCloud();
   } catch (e) {
     cloudReady = false;
     setSyncStatus('offline');
   }
+}
+
+async function loadShopping() {
+  try {
+    const { data: sd } = await supa.from('pantry').select('data, updated_at').eq('id', SHOP_ID).maybeSingle();
+    const localTs = localStorage.getItem('spizarnia_shop_updated') || '';
+    const cloudTs = (sd && sd.updated_at) || '';
+    if (sd && Array.isArray(sd.data) && cloudTs >= localTs) {
+      shopping = sd.data;
+      shopNextId = Math.max(0, ...shopping.map(s => s.id || 0)) + 1;
+      lastShopJSON = JSON.stringify(shopping);
+      localStorage.setItem('spizarnia_shop_v1', lastShopJSON);
+      localStorage.setItem('spizarnia_shop_updated', cloudTs || new Date().toISOString());
+      if (activeView === 'shopping') renderShopping();
+    } else {
+      await pushShopping(true);
+    }
+  } catch (e) {}
+}
+
+let shopPushTimer = null;
+function scheduleShopPush() {
+  if (!cloudReady) return;
+  clearTimeout(shopPushTimer);
+  shopPushTimer = setTimeout(() => pushShopping(), 600);
+}
+
+async function pushShopping(force) {
+  if (!supa || !cloudReady) return;
+  const json = JSON.stringify(shopping);
+  if (!force && json === lastShopJSON) return;
+  try {
+    const { error } = await supa.from('pantry').upsert({
+      id: SHOP_ID, data: shopping, updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    lastShopJSON = json;
+  } catch (e) {}
+}
+
+function saveShop() {
+  localStorage.setItem('spizarnia_shop_v1', JSON.stringify(shopping));
+  localStorage.setItem('spizarnia_shop_updated', new Date().toISOString());
+  scheduleShopPush();
 }
 
 let pushTimer = null;
@@ -1109,6 +1254,23 @@ function subscribeCloud() {
         render();
         if (activeView === 'recipes') renderRecipes();
         showToast('🔄 Zsynchronizowano z innym urządzeniem');
+      })
+    .subscribe();
+
+  supa.channel('shop-sync')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'pantry', filter: 'id=eq.' + SHOP_ID },
+      payload => {
+        const incoming = payload.new && payload.new.data;
+        if (!Array.isArray(incoming)) return;
+        const json = JSON.stringify(incoming);
+        if (json === JSON.stringify(shopping)) return;
+        shopping = incoming;
+        shopNextId = Math.max(0, ...shopping.map(s => s.id || 0)) + 1;
+        lastShopJSON = json;
+        localStorage.setItem('spizarnia_shop_v1', json);
+        localStorage.setItem('spizarnia_shop_updated', (payload.new && payload.new.updated_at) || new Date().toISOString());
+        if (activeView === 'shopping') renderShopping();
       })
     .subscribe();
 }
@@ -1265,6 +1427,7 @@ function setView(view) {
   document.getElementById('searchBar').style.display = view === 'pantry' ? 'block' : 'none';
 
   if (view === 'recipes') renderRecipes();
+  if (view === 'shopping') renderShopping();
   window.scrollTo(0, 0);
 }
 
@@ -1359,6 +1522,76 @@ function openModal(id) {
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+
+// ─── LISTA ZAKUPÓW ───────────────────────────────────────────────────────────
+function renderShopping() {
+  const el = document.getElementById('shopList');
+  if (!shopping.length) {
+    el.innerHTML = `<div class="empty"><div class="emoji">🛒</div><p>Lista jest pusta.<br>Dodaj produkty powyżej albo dorzuć braki z przepisów.</p></div>`;
+    return;
+  }
+  const undone = shopping.filter(s => !s.done);
+  const done = shopping.filter(s => s.done);
+  const item = s => `
+    <div class="shop-item ${s.done ? 'done' : ''}">
+      <div class="shop-check" onclick="toggleShopItem(${s.id})">${s.done ? '✓' : ''}</div>
+      <div class="shop-name" onclick="toggleShopItem(${s.id})">${esc(s.name)}</div>
+      <button class="shop-del" onclick="deleteShopItem(${s.id})">🗑</button>
+    </div>`;
+  let html = undone.map(item).join('');
+  if (done.length) {
+    html += `<div class="shop-divider">Kupione (${done.length})</div>`;
+    html += done.map(item).join('');
+    html += `<button class="full-btn" onclick="moveDoneToPantry()">✅ Przenieś kupione do spiżarni</button>`;
+    html += `<button class="full-btn secondary" onclick="clearDoneShop()">🗑 Wyczyść kupione</button>`;
+  }
+  el.innerHTML = html;
+}
+
+function addShopItem() {
+  const inp = document.getElementById('shopInput');
+  const name = inp.value.trim();
+  if (!name) return;
+  shopping.push({ id: shopNextId++, name, done: false });
+  saveShop(); renderShopping();
+  inp.value = ''; inp.focus();
+}
+function toggleShopItem(id) {
+  const s = shopping.find(x => x.id === id);
+  if (!s) return;
+  s.done = !s.done;
+  saveShop(); renderShopping();
+}
+function deleteShopItem(id) {
+  shopping = shopping.filter(x => x.id !== id);
+  saveShop(); renderShopping();
+}
+function clearDoneShop() {
+  shopping = shopping.filter(s => !s.done);
+  saveShop(); renderShopping();
+  showToast('🗑 Wyczyszczono kupione');
+}
+function moveDoneToPantry() {
+  const done = shopping.filter(s => s.done);
+  if (!done.length) return;
+  done.forEach(s => upsertProduct({ name: s.name, brand: '', category: guessCategory(s.name.toLowerCase()), qty: 1, unit: 'szt.' }));
+  shopping = shopping.filter(s => !s.done);
+  save(); render();
+  saveShop(); renderShopping();
+  showToast(`✅ Dodano ${done.length} do spiżarni`);
+}
+function addMissingToShop(enc) {
+  let labels = [];
+  try { labels = JSON.parse(decodeURIComponent(enc)); } catch (e) {}
+  let added = 0;
+  labels.forEach(l => {
+    if (!shopping.some(s => s.name.toLowerCase() === l.toLowerCase())) {
+      shopping.push({ id: shopNextId++, name: l, done: false }); added++;
+    }
+  });
+  if (added) { saveShop(); if (activeView === 'shopping') renderShopping(); }
+  showToast(added ? `🛒 Dodano ${added} do listy zakupów` : 'To już jest na liście');
+}
 
 // ─── TOAST ───────────────────────────────────────────────────────────────────
 let toastTimer;
@@ -1973,7 +2206,7 @@ function renderRecipes() {
               return `<li class="${cls}"><span class="ing-mark">${mark}</span>${esc(ing.label)}${opt}</li>`;
             }).join('')}
           </ul>
-          ${e.missing.length ? `<div class="miss-note">Brakuje: ${e.missing.map(esc).join(', ')}</div>` : ''}
+          ${e.missing.length ? `<div class="miss-note">Brakuje: ${e.missing.map(esc).join(', ')}<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(e.missing))}')">🛒 Do listy</button></div>` : ''}
           <details class="recipe-steps">
             <summary>👨‍🍳 Sposób przygotowania</summary>
             <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
