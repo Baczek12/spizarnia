@@ -765,6 +765,14 @@
       <option value="Mięso">Mięso</option>
       <option value="Owoce">Owoce</option>
       <option value="Przyprawy">Przyprawy</option>
+      <option value="Wędliny">Wędliny</option>
+      <option value="Ryby i owoce morza">Ryby i owoce morza</option>
+      <option value="Makarony i kasze">Makarony i kasze</option>
+      <option value="Pieczywo">Pieczywo</option>
+      <option value="Napoje">Napoje</option>
+      <option value="Kawa / Herbata">Kawa / Herbata</option>
+      <option value="Mrożonki">Mrożonki</option>
+      <option value="Do pieczenia">Do pieczenia</option>
       <option value="Słodycze">Słodycze</option>
       <option value="Słone przekąski">Słone przekąski</option>
       <option value="Inne">Inne</option>
@@ -946,7 +954,10 @@ function subscribeCloud() {
 const CATEGORY_ICONS = {
   'Przetwory': '🥫', 'Sosy/Pasty': '🫙', 'Nabiał': '🧀',
   'Suche': '🌾', 'Tłuszcze': '🫒', 'Warzywa': '🥦',
-  'Mięso': '🥩', 'Owoce': '🍑', 'Przyprawy': '🧂',
+  'Mięso': '🥩', 'Wędliny': '🥓', 'Ryby i owoce morza': '🐟',
+  'Owoce': '🍑', 'Przyprawy': '🧂', 'Makarony i kasze': '🍝',
+  'Pieczywo': '🍞', 'Napoje': '🥤', 'Kawa / Herbata': '☕',
+  'Mrożonki': '🧊', 'Do pieczenia': '🧁',
   'Słodycze': '🍫', 'Słone przekąski': '🍿', 'Inne': '📦'
 };
 
@@ -1383,6 +1394,14 @@ function guessUnit(low) {
 const CAT_KEYWORDS = {
   'Słone przekąski': ['chips','chipsy','chrupki','chrupek','paluszk','precl','precel','krakers','cracker','popcorn','nachos','orzeszk','prażyn','prazyn','cheet','crunchips','pringles','lays','tortilla chips','snack','przekąsk','przekask'],
   'Słodycze': ['czekolad','baton','cukierk','żelk','zelk','lizak','ciastk','herbatnik','wafel','wafl','lody','lód','deser','pralin','krówk','krowk','michałk','michalk','snicker','milka','kinder','draż','draz','toffi','chałw','chalw','marmolad','beza','ptasie mleczko','sezamki'],
+  'Napoje': ['woda','sok ','soku','napój','napoj','cola','pepsi','sprite','fanta','lemoniad','energ','nektar','izoton','tonik','oranżad','oranzad','ice tea','kompot','smoothie','tymbark','red bull'],
+  'Kawa / Herbata': ['kawa','kawy','espresso','cappuc','latte','rooibos','earl grey','herbat','melis','rumianek','yerba','mate'],
+  'Mrożonki': ['mrożon','mrozon','mrożonk','mrozonk','frytki','pierogi mroż'],
+  'Wędliny': ['salami','parów','parow','szynk','kiełbas','kielbas','boczek','wędlin','wedlin','kabanos','kabano','mortadel','pasztet','polędwic','poledwic','baleron','frankfurt','metka','salceson','schab piecz'],
+  'Ryby i owoce morza': ['łoso','loso','tuńczyk','tunczyk','dorsz','śledź','sledz','makrela','krewetk','rybne','rybn','owoce morza','kalmar','mintaj','panga','pstrąg','pstrag','sardynk','szprot','surimi','paluszki ryb'],
+  'Makarony i kasze': ['makaron','spaghetti','penne','lasagne','tagliatel','fusilli','rigatoni','farfalle','ravioli','tortellini','ryż','ryz','ryżu','kasza','kaszy','kuskus','couscous','gnocchi','noodle'],
+  'Do pieczenia': ['mąka','maka','cukier','skrobia','drożdż','drozdz','proszek do piecz','soda oczy','panko','bułka tart','bulka tart','kakao','wanili','budyń','budyn','żelatyn','zelatyn','marcepan','lukier','polewa'],
+  'Pieczywo': ['chleb','bułk','bulk','bagiet','tortilla','wrap','rogal','chałk','chalk','ciabatt','kajzer','pieczyw','tost','graham','razow','bajgiel','focaccia'],
   'Nabiał': ['mleko','ser','jogurt','śmietan','smietan','masło','maslo','twaróg','twarog','mozzarella','kefir','jaj'],
   'Warzywa': ['pomidor','ogórek','ogorek','cebula','marchew','ziemniak','papryka','sałat','salat','czosnek','brokuł','brokul','kapust','pieczark'],
   'Owoce': ['jabłk','jablk','banan','cytryn','pomarańcz','pomarancz','truskaw','winogron','gruszk','brzoskwin','śliw','sliw'],
