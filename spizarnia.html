@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Spiżarnia">
+  <meta name="theme-color" content="#16a34a">
+  <title>🥫 Spiżarnia</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --green: #16a34a;
+      --green-light: #dcfce7;
+      --green-dark: #15803d;
+      --amber: #d97706;
+      --amber-light: #fef3c7;
+      --red: #dc2626;
+      --red-light: #fee2e2;
+      --gray: #f3f4f6;
+      --gray-dark: #6b7280;
+      --text: #111827;
+      --border: #e5e7eb;
+      --white: #ffffff;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: calc(72px + var(--safe-bottom));
+    }
+
+    /* HEADER */
+    header {
+      background: var(--green);
+      color: white;
+      padding: calc(16px + var(--safe-top)) 16px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      font-size: 13px;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    .search-bar {
+      margin-top: 12px;
+      position: relative;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 10px 16px 10px 38px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      outline: none;
+    }
+
+    .search-bar input::placeholder { color: rgba(255,255,255,0.7); }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    /* FILTER TABS */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      background: white;
+      border-bottom: 1px solid var(--border);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      white-space: nowrap;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: white;
+      color: var(--gray-dark);
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .tab.active {
+      background: var(--green);
+      border-color: var(--green);
+      color: white;
+    }
+
+    /* PRODUCT LIST */
+    .list {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .category-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--gray-dark);
+      margin-top: 8px;
+      margin-bottom: 4px;
+      padding-left: 4px;
+    }
+
+    .category-label:first-child { margin-top: 0; }
+
+    .product-card {
+      background: white;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: transform 0.1s;
+    }
+
+    .product-card.zero { opacity: 0.5; }
+
+    .product-info { flex: 1; min-width: 0; }
+
+    .product-name {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .product-meta {
+      font-size: 12px;
+      color: var(--gray-dark);
+      margin-top: 2px;
+    }
+
+    .product-unit {
+      font-size: 13px;
+      color: var(--green-dark);
+      font-weight: 500;
+      margin-top: 3px;
+    }
+
+    /* QUANTITY CONTROLS */
+    .qty-controls {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--gray);
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .qty-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      font-size: 20px;
+      font-weight: 300;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      transition: background 0.1s;
+      user-select: none;
+    }
+
+    .qty-btn:active { background: var(--border); }
+    .qty-btn.minus { color: var(--red); }
+
+    .qty-num {
+      min-width: 32px;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* DELETE BUTTON */
+    .delete-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: var(--red-light);
+      color: var(--red);
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.1s;
+    }
+
+    .delete-btn:active { background: #fca5a5; }
+
+    /* EMPTY STATE */
+    .empty {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--gray-dark);
+    }
+
+    .empty .emoji { font-size: 48px; margin-bottom: 12px; }
+
+    /* FAB */
+    .fab {
+      position: fixed;
+      bottom: calc(84px + var(--safe-bottom));
+      right: 20px;
+      width: 58px;
+      height: 58px;
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 28px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(22, 163, 74, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    .fab:active { transform: scale(0.92); background: var(--green-dark); }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 300;
+      display: flex;
+      align-items: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: white;
+      width: 100%;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px calc(20px + var(--safe-bottom));
+      transform: translateY(100%);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+
+    .modal label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-dark);
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+
+    .modal label:first-of-type { margin-top: 0; }
+
+    .modal input, .modal select, .modal textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      outline: none;
+      background: white;
+      color: var(--text);
+      appearance: none;
+      font-family: inherit;
+    }
+
+    .modal input:focus, .modal select:focus, .modal textarea:focus { border-color: var(--green); }
+
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.1s;
+    }
+
+    .btn:active { opacity: 0.8; }
+    .btn-primary { background: var(--green); color: white; }
+    .btn-secondary { background: var(--gray); color: var(--text); }
+
+    /* TOAST */
+    .toast {
+      position: fixed;
+      bottom: calc(90px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1f2937;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 400;
+      opacity: 0;
+      transition: all 0.25s;
+      white-space: nowrap;
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* STATS BAR */
+    .stats {
+      background: white;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--gray-dark);
+      display: flex;
+      gap: 16px;
+    }
+
+    .stats span { font-weight: 600; color: var(--green); }
+
+    /* VIEWS */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* BOTTOM NAV */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(60px + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 250;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.04);
+    }
+
+    .nav-item {
+      flex: 1;
+      border: none;
+      background: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      cursor: pointer;
+      color: var(--gray-dark);
+      font-size: 11px;
+      font-weight: 600;
+      transition: color 0.15s;
+    }
+
+    .nav-item .nav-ico { font-size: 22px; line-height: 1; }
+    .nav-item.active { color: var(--green); }
+
+    /* RECEIPT & RECIPES SHARED */
+    .panel { padding: 16px; }
+
+    .panel-intro {
+      font-size: 13px;
+      color: var(--gray-dark);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    /* PARAGON: ZDJĘCIA / OCR */
+    .photo-drop {
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      padding: 18px 14px;
+      text-align: center;
+      background: white;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 12px;
+    }
+    .photo-drop:active { border-color: var(--green); background: var(--green-light); }
+    .photo-drop .pd-ico { font-size: 30px; }
+    .photo-drop .pd-main { font-size: 15px; font-weight: 700; margin-top: 6px; }
+    .photo-drop .pd-sub { font-size: 12px; color: var(--gray-dark); margin-top: 3px; }
+
+    .photo-previews {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .photo-thumb {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-thumb .remove {
+      position: absolute;
+      top: 2px; right: 2px;
+      width: 20px; height: 20px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ocr-progress {
+      margin: 10px 0 0;
+      font-size: 13px;
+      color: var(--green-dark);
+      font-weight: 600;
+      display: none;
+    }
+    .ocr-progress.show { display: block; }
+    .ocr-bar {
+      height: 6px;
+      background: var(--gray);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .ocr-bar > div {
+      height: 100%;
+      width: 0%;
+      background: var(--green);
+      transition: width 0.2s;
+    }
+
+    .receipt-divider {
+      text-align: center;
+      font-size: 12px;
+      color: var(--gray-dark);
+      margin: 14px 0 10px;
+      position: relative;
+    }
+    .receipt-divider::before,
+    .receipt-divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 38%;
+      height: 1px;
+      background: var(--border);
+    }
+    .receipt-divider::before { left: 0; }
+    .receipt-divider::after { right: 0; }
+
+    textarea#receiptText {
+      width: 100%;
+      min-height: 140px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+      background: white;
+    }
+
+    textarea#receiptText:focus { border-color: var(--green); }
+
+    .full-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--green);
+      color: white;
+    }
+    .full-btn:active { opacity: 0.85; }
+    .full-btn.secondary { background: var(--gray); color: var(--text); }
+
+    /* PARSED ITEMS */
+    .parsed-item {
+      background: white;
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 8px;
+    }
+    .parsed-item.off { opacity: 0.45; }
+    .parsed-check {
+      width: 24px; height: 24px;
+      flex-shrink: 0;
+      border-radius: 7px;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; color: white; cursor: pointer;
+      background: white;
+    }
+    .parsed-item:not(.off) .parsed-check { background: var(--green); border-color: var(--green); }
+    .parsed-body { flex: 1; min-width: 0; }
+    .parsed-body input {
+      width: 100%;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+    }
+    .parsed-controls { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+    .parsed-controls input.pq {
+      width: 46px;
+      padding: 3px 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .parsed-controls select {
+      padding: 3px 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      background: white;
+      max-width: 130px;
+    }
+
+    /* RECIPES */
+    .recipe-card {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 12px;
+    }
+    .recipe-head { display: flex; align-items: flex-start; gap: 10px; }
+    .recipe-emoji { font-size: 30px; line-height: 1; }
+    .recipe-title { font-size: 17px; font-weight: 700; flex: 1; }
+    .recipe-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .badge-full { background: var(--green-light); color: var(--green-dark); }
+    .badge-partial { background: var(--amber-light); color: var(--amber); }
+
+    .recipe-meal {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gray-dark);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .ingredients { list-style: none; margin: 12px 0 0; }
+    .ingredients li {
+      font-size: 14px;
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ing-have { color: var(--text); }
+    .ing-miss { color: var(--red); }
+    .ing-basic { color: var(--gray-dark); }
+    .ing-mark { width: 18px; text-align: center; flex-shrink: 0; }
+
+    .recipe-steps {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+    .recipe-steps summary {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green-dark);
+      cursor: pointer;
+      list-style: none;
+    }
+    .recipe-steps summary::-webkit-details-marker { display: none; }
+    .recipe-steps ol { margin: 10px 0 0 18px; font-size: 14px; line-height: 1.6; color: var(--text); }
+    .recipe-steps ol li { margin-bottom: 4px; }
+
+    .miss-note {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--amber);
+      background: var(--amber-light);
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🥫 Spiżarnia</h1>
+  <p id="lastUpdate">Ostatnia aktualizacja: 2026-06-04</p>
+  <p id="syncStatus" style="font-size:12px;opacity:0.85;margin-top:2px;">💾 Lokalnie</p>
+  <div class="search-bar" id="searchBar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Szukaj produktu…" oninput="render()">
+  </div>
+</header>
+
+<!-- ─── VIEW: SPIŻARNIA ─────────────────────────────────────────── -->
+<section class="view active" id="view-pantry">
+  <div class="tabs" id="tabs"></div>
+  <div class="stats">Produktów: <span id="statsCount">0</span>&nbsp;&nbsp;|&nbsp;&nbsp;Kategorii: <span id="statsCats">0</span></div>
+  <div class="list" id="list"></div>
+</section>
+
+<!-- ─── VIEW: PRZEPISY ──────────────────────────────────────────── -->
+<section class="view" id="view-recipes">
+  <div class="tabs" id="mealTabs"></div>
+  <div class="panel" id="recipesPanel"></div>
+</section>
+
+<!-- ─── VIEW: PARAGON ───────────────────────────────────────────── -->
+<section class="view" id="view-receipt">
+  <div class="panel">
+    <p class="panel-intro">Zrób zdjęcie paragonu (lub wybierz z galerii) albo wklej tekst e-paragonu. Aplikacja odczyta produkty spożywcze (pomija chemię, alkohol, higienę). Sprawdź listę i dodaj do spiżarni.</p>
+
+    <div class="photo-drop" id="photoDrop" onclick="document.getElementById('receiptPhoto').click()">
+      <div class="pd-ico">📸</div>
+      <div class="pd-main">Dodaj zdjęcie paragonu</div>
+      <div class="pd-sub">Aparat lub galeria · możesz dodać kilka zdjęć</div>
+    </div>
+    <input type="file" id="receiptPhoto" accept="image/*" capture="environment" multiple
+           style="display:none" onchange="handleReceiptPhotos(this.files)">
+
+    <div class="photo-previews" id="photoPreviews"></div>
+
+    <div class="ocr-progress" id="ocrProgress">
+      <span id="ocrLabel">Odczytuję tekst ze zdjęcia…</span>
+      <div class="ocr-bar"><div id="ocrBarFill"></div></div>
+    </div>
+
+    <div class="receipt-divider">albo wklej tekst</div>
+
+    <textarea id="receiptText" placeholder="Wklej tutaj tekst paragonu…&#10;np.&#10;Mleko 3,2% 1L      3,49 A&#10;Chleb razowy        4,99 A&#10;Pomidory 0,540kg    4,32 A"></textarea>
+    <button class="full-btn" onclick="parseReceipt()">🔍 Rozpoznaj produkty</button>
+    <div id="parsedWrap"></div>
+  </div>
+</section>
+
+<button class="fab" id="fab" onclick="openModal()">＋</button>
+
+<!-- ─── BOTTOM NAV ──────────────────────────────────────────────── -->
+<nav class="bottom-nav">
+  <button class="nav-item active" id="nav-pantry" onclick="setView('pantry')">
+    <span class="nav-ico">🥫</span>Spiżarnia
+  </button>
+  <button class="nav-item" id="nav-recipes" onclick="setView('recipes')">
+    <span class="nav-ico">🍳</span>Przepisy
+  </button>
+  <button class="nav-item" id="nav-receipt" onclick="setView('receipt')">
+    <span class="nav-ico">🧾</span>Paragon
+  </button>
+</nav>
+
+<!-- ─── MODAL: DODAJ PRODUKT ────────────────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalIfOutside(event)">
+  <div class="modal" id="modal">
+    <h2>➕ Dodaj produkt</h2>
+    <label>Nazwa produktu *</label>
+    <input type="text" id="newName" placeholder="np. Makaron spaghetti">
+    <label>Marka / uwagi</label>
+    <input type="text" id="newBrand" placeholder="np. Barilla">
+    <div class="modal-row">
+      <div>
+        <label>Ilość *</label>
+        <input type="number" id="newQty" value="1" min="0" step="1">
+      </div>
+      <div>
+        <label>Jednostka</label>
+        <input type="text" id="newUnit" placeholder="szt / op / g / ml">
+      </div>
+    </div>
+    <label>Kategoria</label>
+    <select id="newCat">
+      <option value="Przetwory">Przetwory</option>
+      <option value="Sosy/Pasty">Sosy/Pasty</option>
+      <option value="Nabiał">Nabiał</option>
+      <option value="Suche">Suche</option>
+      <option value="Tłuszcze">Tłuszcze</option>
+      <option value="Warzywa">Warzywa</option>
+      <option value="Mięso">Mięso</option>
+      <option value="Owoce">Owoce</option>
+      <option value="Inne">Inne</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Anuluj</button>
+      <button class="btn btn-primary" onclick="addProduct()">Dodaj</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Klient Supabase (synchronizacja w chmurze) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// ─── DEFAULT DATA ────────────────────────────────────────────────────────────
+const TODAY = '2026-06-04';
+const DEFAULT_PRODUCTS = [
+  { id: 1,  name: "Oliwki Kalamata bez pestek", brand: "Vera Creta",    category: "Przetwory",  qty: 1, unit: "słoik",   date: TODAY },
+  { id: 2,  name: "Pesto alla Calabrese",        brand: "GustoBello",   category: "Sosy/Pasty", qty: 1, unit: "słoik",   date: TODAY },
+  { id: 3,  name: "Fasola Cannellini",           brand: "Dawtona",      category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
+  { id: 4,  name: "Śmietanka 30%",              brand: "Łaciata",      category: "Nabiał",     qty: 1, unit: "250ml",   date: TODAY },
+  { id: 5,  name: "Groszek konserwowy",          brand: "Nasza Spiżarnia", category: "Przetwory", qty: 2, unit: "puszka", date: TODAY },
+  { id: 6,  name: "Groszek konserwowy",          brand: "Rolnik",       category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
+  { id: 7,  name: "Czerwona Fasola porcja",      brand: "Bonduelle",    category: "Przetwory",  qty: 2, unit: "op.",     date: TODAY },
+  { id: 8,  name: "Kukurydza złocista porcja",  brand: "Bonduelle",    category: "Przetwory",  qty: 1, unit: "op.",     date: TODAY },
+  { id: 9,  name: "Brzoskwinie w syropie",       brand: "Kier",         category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
+  { id: 10, name: "Skrobia ziemniaczana",        brand: "Plony Natury", category: "Suche",      qty: 1, unit: "op.",     date: TODAY },
+  { id: 11, name: "Pomodori Secchi e Pistacchi", brand: "Tigullio",     category: "Przetwory",  qty: 1, unit: "słoik",   date: TODAY },
+  { id: 12, name: "Polpa – pomidory krojone",    brand: "Mutti",        category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
+  { id: 13, name: "Ragù di Cinghiale",           brand: "Esselunga",    category: "Sosy/Pasty", qty: 1, unit: "słoik",   date: TODAY },
+  { id: 14, name: "Mleko kokosowe",              brand: "Real Thai",    category: "Przetwory",  qty: 1, unit: "500ml",   date: TODAY },
+  { id: 15, name: "Makaron instant",             brand: "Vifon",        category: "Suche",      qty: 2, unit: "paczka",  date: TODAY },
+  { id: 16, name: "Bułka tarta Panko",           brand: "Goong",        category: "Suche",      qty: 1, unit: "op.",     date: TODAY },
+  { id: 17, name: "Ryż biały długoziarnisty",    brand: "Plony Natury", category: "Suche",      qty: 3, unit: "op.",     date: TODAY },
+  { id: 18, name: "Lasagne",                     brand: "GustoBello",   category: "Suche",      qty: 2, unit: "500g",    date: TODAY },
+  { id: 19, name: "Lasagne",                     brand: "Combino",      category: "Suche",      qty: 1, unit: "500g",    date: TODAY },
+  { id: 20, name: "Olej roślinny",               brand: "",             category: "Tłuszcze",   qty: 1, unit: "butelka", date: TODAY },
+  { id: 21, name: "Mozzarella wiórki",           brand: "Delikate",     category: "Nabiał",     qty: 1, unit: "op.",     date: TODAY },
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let products = JSON.parse(localStorage.getItem('spizarnia_v1') || 'null') || DEFAULT_PRODUCTS;
+let activeTab = 'Wszystkie';
+let activeMeal = 'Wszystkie';
+let activeView = 'pantry';
+let parsedItems = [];
+let nextId = Math.max(...products.map(p => p.id), 0) + 1;
+
+// ─── KONFIGURACJA SUPABASE ───────────────────────────────────────────────────
+// 1. Wejdź na https://supabase.com → New project (darmowy).
+// 2. Settings → API → skopiuj "Project URL" oraz klucz "anon public".
+// 3. Wklej je poniżej (w cudzysłowach).
+const SUPABASE_URL = 'https://kltipgnmyihxotqfryow.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsdGlwZ25teWloeG90cWZyeW93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjQxNzEsImV4cCI6MjA5NjE0MDE3MX0.9NR6n4HS7enEWQnw2iMCT1hR7fui9BBuIocPSME_MkM';
+const PANTRY_ID = 'default';                        // jedna spiżarnia; zmień, by mieć osobne
+const CLOUD_ENABLED = /^https:\/\//.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 20;
+
+let supa = null;
+let cloudReady = false;
+let lastSyncedJSON = '';
+
+function todayStr() {
+  // Stała data startowa wg CLAUDE.md, potem realna data urządzenia
+  try { return new Date().toISOString().slice(0, 10); } catch (e) { return TODAY; }
+}
+
+function save() {
+  localStorage.setItem('spizarnia_v1', JSON.stringify(products));
+  localStorage.setItem('spizarnia_updated', new Date().toISOString());
+  document.getElementById('lastUpdate').textContent =
+    'Ostatnia aktualizacja: ' + todayStr();
+  schedulePush();
+}
+
+// ─── SYNCHRONIZACJA W CHMURZE (Supabase) ─────────────────────────────────────
+function setSyncStatus(state) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const map = {
+    local:      '💾 Lokalnie (bez chmury)',
+    connecting: '☁️ Łączę z chmurą…',
+    synced:     '☁️ Zsynchronizowano',
+    saving:     '☁️ Zapisuję…',
+    offline:    '⚠️ Offline — zapis lokalny'
+  };
+  el.textContent = map[state] || '';
+}
+
+async function initCloud() {
+  if (!CLOUD_ENABLED) { setSyncStatus('local'); return; }
+  if (!window.supabase) { setSyncStatus('offline'); return; }
+
+  supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  setSyncStatus('connecting');
+
+  try {
+    const { data, error } = await supa
+      .from('pantry').select('data, updated_at').eq('id', PANTRY_ID).maybeSingle();
+    if (error) throw error;
+
+    const localTs = localStorage.getItem('spizarnia_updated') || '';
+    const cloudTs = (data && data.updated_at) || '';
+
+    if (data && Array.isArray(data.data) && cloudTs >= localTs) {
+      // Chmura ma nowszy (lub równy) stan → użyj go
+      products = data.data;
+      nextId = Math.max(...products.map(p => p.id), 0) + 1;
+      lastSyncedJSON = JSON.stringify(products);
+      localStorage.setItem('spizarnia_v1', lastSyncedJSON);
+      localStorage.setItem('spizarnia_updated', cloudTs || new Date().toISOString());
+      render();
+      if (activeView === 'recipes') renderRecipes();
+      cloudReady = true;
+      setSyncStatus('synced');
+    } else {
+      // Brak danych w chmurze albo stan lokalny nowszy → wgraj lokalny
+      cloudReady = true;
+      await pushToCloud(true);
+    }
+    subscribeCloud();
+  } catch (e) {
+    cloudReady = false;
+    setSyncStatus('offline');
+  }
+}
+
+let pushTimer = null;
+function schedulePush() {
+  if (!cloudReady) return;
+  clearTimeout(pushTimer);
+  setSyncStatus('saving');
+  pushTimer = setTimeout(() => pushToCloud(), 600);
+}
+
+async function pushToCloud(force) {
+  if (!supa || !cloudReady) return;
+  const json = JSON.stringify(products);
+  if (!force && json === lastSyncedJSON) { setSyncStatus('synced'); return; }
+  try {
+    const { error } = await supa.from('pantry').upsert({
+      id: PANTRY_ID,
+      data: products,
+      updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    lastSyncedJSON = json;
+    setSyncStatus('synced');
+  } catch (e) {
+    setSyncStatus('offline');
+  }
+}
+
+function subscribeCloud() {
+  if (!supa) return;
+  supa.channel('pantry-sync')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'pantry', filter: 'id=eq.' + PANTRY_ID },
+      payload => {
+        const incoming = payload.new && payload.new.data;
+        if (!Array.isArray(incoming)) return;
+        const json = JSON.stringify(incoming);
+        if (json === JSON.stringify(products)) return; // echo własnej zmiany
+        products = incoming;
+        nextId = Math.max(...products.map(p => p.id), 0) + 1;
+        lastSyncedJSON = json;
+        localStorage.setItem('spizarnia_v1', json);
+        localStorage.setItem('spizarnia_updated', (payload.new && payload.new.updated_at) || new Date().toISOString());
+        render();
+        if (activeView === 'recipes') renderRecipes();
+        showToast('🔄 Zsynchronizowano z innym urządzeniem');
+      })
+    .subscribe();
+}
+
+// ─── RENDER: PANTRY ──────────────────────────────────────────────────────────
+const CATEGORY_ICONS = {
+  'Przetwory': '🥫', 'Sosy/Pasty': '🫙', 'Nabiał': '🧀',
+  'Suche': '🌾', 'Tłuszcze': '🫒', 'Warzywa': '🥦',
+  'Mięso': '🥩', 'Owoce': '🍑', 'Inne': '📦'
+};
+
+function getCategories() {
+  return ['Wszystkie', ...new Set(products.map(p => p.category))];
+}
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  return products.filter(p => {
+    const matchTab = activeTab === 'Wszystkie' || p.category === activeTab;
+    const matchQ = !q || p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q);
+    return matchTab && matchQ;
+  });
+}
+
+function render() {
+  const cats = getCategories();
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = cats.map(c =>
+    `<div class="tab ${c === activeTab ? 'active' : ''}" onclick="setTab('${c}')">${CATEGORY_ICONS[c] || ''} ${c}</div>`
+  ).join('');
+
+  document.getElementById('statsCount').textContent = products.length;
+  document.getElementById('statsCats').textContent = cats.length - 1;
+
+  const filtered = getFiltered();
+  const listEl = document.getElementById('list');
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="empty"><div class="emoji">🔍</div><p>Brak wyników</p></div>`;
+    return;
+  }
+
+  const grouped = {};
+  filtered.forEach(p => {
+    if (!grouped[p.category]) grouped[p.category] = [];
+    grouped[p.category].push(p);
+  });
+
+  let html = '';
+  for (const [cat, items] of Object.entries(grouped)) {
+    if (activeTab === 'Wszystkie') {
+      html += `<div class="category-label">${CATEGORY_ICONS[cat] || ''} ${cat}</div>`;
+    }
+    items.forEach(p => {
+      html += `
+        <div class="product-card ${p.qty === 0 ? 'zero' : ''}">
+          <div class="product-info">
+            <div class="product-name">${esc(p.name)}</div>
+            ${p.brand ? `<div class="product-meta">${esc(p.brand)}</div>` : ''}
+            <div class="product-unit">${p.qty} ${esc(p.unit)}</div>
+          </div>
+          <div class="qty-controls">
+            <button class="qty-btn minus" onclick="changeQty(${p.id}, -1)">−</button>
+            <span class="qty-num">${p.qty}</span>
+            <button class="qty-btn plus" onclick="changeQty(${p.id}, +1)">+</button>
+          </div>
+          <button class="delete-btn" onclick="deleteProduct(${p.id})">🗑</button>
+        </div>`;
+    });
+  }
+  listEl.innerHTML = html;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function setTab(cat) { activeTab = cat; render(); }
+
+// ─── VIEW SWITCH ─────────────────────────────────────────────────────────────
+function setView(view) {
+  activeView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('nav-' + view).classList.add('active');
+
+  // FAB i wyszukiwarka tylko na widoku spiżarni
+  document.getElementById('fab').style.display = view === 'pantry' ? 'flex' : 'none';
+  document.getElementById('searchBar').style.display = view === 'pantry' ? 'block' : 'none';
+
+  if (view === 'recipes') renderRecipes();
+  window.scrollTo(0, 0);
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function changeQty(id, delta) {
+  const p = products.find(p => p.id === id);
+  if (!p) return;
+  p.qty = Math.max(0, p.qty + delta);
+  p.date = todayStr();
+  save();
+  render();
+  if (p.qty === 0) showToast(`⚠️ ${p.name} — stan zerowy!`);
+}
+
+function deleteProduct(id) {
+  const p = products.find(p => p.id === id);
+  if (!p) return;
+  if (!confirm(`Usunąć "${p.name}"?`)) return;
+  products = products.filter(x => x.id !== id);
+  save();
+  render();
+  showToast(`🗑 Usunięto: ${p.name}`);
+}
+
+function addProduct() {
+  const name = document.getElementById('newName').value.trim();
+  const brand = document.getElementById('newBrand').value.trim();
+  const qty = parseInt(document.getElementById('newQty').value) || 1;
+  const unit = document.getElementById('newUnit').value.trim() || 'szt.';
+  const category = document.getElementById('newCat').value;
+
+  if (!name) { document.getElementById('newName').focus(); return; }
+
+  products.push({ id: nextId++, name, brand, category, qty, unit, date: todayStr() });
+  save();
+  render();
+  closeModal();
+  showToast(`✅ Dodano: ${name}`);
+}
+
+// Dodaj lub zwiększ ilość istniejącego (po nazwie+marce) — wg CLAUDE.md
+function upsertProduct({ name, brand, category, qty, unit }) {
+  const key = (name + '|' + (brand || '')).toLowerCase();
+  const existing = products.find(p => (p.name + '|' + (p.brand || '')).toLowerCase() === key);
+  if (existing) {
+    existing.qty += qty;
+    existing.date = todayStr();
+  } else {
+    products.push({ id: nextId++, name, brand: brand || '', category, qty, unit: unit || 'szt.', date: todayStr() });
+  }
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('newName').value = '';
+  document.getElementById('newBrand').value = '';
+  document.getElementById('newQty').value = 1;
+  document.getElementById('newUnit').value = '';
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('newName').focus(), 300);
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModalIfOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── PARAGON: PARSER (lokalny, regułowy) ─────────────────────────────────────
+// Słowa, które wykluczają linię (chemia / higiena / alkohol / nie-jedzenie)
+const RECEIPT_BLOCK = [
+  'reklamow','torba','worek','worki','siatka','płyn','plyn','proszek','kapsuł','kapsul',
+  'papier','chusteczk','ręcznik','recznik','mydło','mydlo','żel','zel','szampon','pasta do',
+  'szczotecz','dezodor','podpask','tampon','pielucha','pieluch','bateri','żarówk','zarowk',
+  'piwo','wino','wódka','wodka','whisky','likier','nalewka','cydr','drink','spiryt',
+  'papieros','tyto','znaczek','doładow','doladow','gazet','prasa','karma','żwirek','zwirek'
+];
+// Słowa typowo niespożywcze w nagłówkach/stopkach paragonu
+const RECEIPT_NOISE = [
+  'paragon','fiskalny','sprzedaż','sprzedaz','suma','razem','podsuma','gotówk','gotowk',
+  'karta','reszta','ptu','ptus','podatek','nip','sklep','market','biedronka','lidl',
+  'kaufland','auchan','tesco','żabka','zabka','rossmann','dziękujemy','dziekujemy',
+  'zapraszamy','www','ul.','sp. z','sp.z','regon','kasa','kasjer','nr ','rabat','opust',
+  'do zapłaty','do zaplaty','płatność','platnosc','transakcja','data','godz','adres'
+];
+
+// ─── PARAGON: ZDJĘCIA + OCR (Tesseract.js, ładowany z CDN na żądanie) ─────────
+const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+let tesseractLoading = null;
+let receiptPhotos = []; // { url, file }
+
+// Załaduj bibliotekę OCR tylko raz, dopiero gdy potrzebna
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (tesseractLoading) return tesseractLoading;
+  tesseractLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = TESSERACT_CDN;
+    s.onload = () => window.Tesseract ? resolve(window.Tesseract) : reject(new Error('Tesseract niedostępny'));
+    s.onerror = () => reject(new Error('Nie udało się załadować OCR (sprawdź internet)'));
+    document.head.appendChild(s);
+  });
+  return tesseractLoading;
+}
+
+function renderPhotoPreviews() {
+  const wrap = document.getElementById('photoPreviews');
+  wrap.innerHTML = receiptPhotos.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${p.url}" alt="paragon ${i + 1}">
+      <button class="remove" onclick="removeReceiptPhoto(${i})" aria-label="Usuń">×</button>
+    </div>`).join('');
+}
+
+function removeReceiptPhoto(i) {
+  const p = receiptPhotos[i];
+  if (p) URL.revokeObjectURL(p.url);
+  receiptPhotos.splice(i, 1);
+  renderPhotoPreviews();
+}
+
+async function handleReceiptPhotos(fileList) {
+  const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+  if (files.length === 0) return;
+
+  files.forEach(f => receiptPhotos.push({ url: URL.createObjectURL(f), file: f }));
+  renderPhotoPreviews();
+  // pozwól wybrać te same pliki ponownie później
+  document.getElementById('receiptPhoto').value = '';
+
+  const progress = document.getElementById('ocrProgress');
+  const label = document.getElementById('ocrLabel');
+  const fill = document.getElementById('ocrBarFill');
+  progress.classList.add('show');
+  fill.style.width = '0%';
+  label.textContent = 'Ładuję moduł OCR…';
+
+  let Tesseract;
+  try {
+    Tesseract = await loadTesseract();
+  } catch (e) {
+    progress.classList.remove('show');
+    showToast('⚠️ ' + e.message);
+    return;
+  }
+
+  let allText = [];
+  try {
+    for (let n = 0; n < files.length; n++) {
+      const baseMsg = files.length > 1 ? `Zdjęcie ${n + 1}/${files.length}: ` : '';
+      const { data } = await Tesseract.recognize(files[n], 'pol', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            fill.style.width = Math.round(m.progress * 100) + '%';
+            label.textContent = baseMsg + 'Odczytuję tekst… ' + Math.round(m.progress * 100) + '%';
+          } else {
+            label.textContent = baseMsg + 'Przygotowuję…';
+          }
+        }
+      });
+      if (data && data.text) allText.push(data.text.trim());
+    }
+  } catch (e) {
+    progress.classList.remove('show');
+    showToast('⚠️ Błąd odczytu zdjęcia');
+    return;
+  }
+
+  progress.classList.remove('show');
+
+  const ta = document.getElementById('receiptText');
+  const recognized = allText.join('\n').trim();
+  if (!recognized) {
+    showToast('🤔 Nie odczytano tekstu — spróbuj wyraźniejszego zdjęcia');
+    return;
+  }
+  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + recognized;
+  showToast('📝 Odczytano tekst — sprawdzam produkty…');
+  parseReceipt();
+  ta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function parseReceipt() {
+  const raw = document.getElementById('receiptText').value;
+  const lines = raw.split(/\r?\n/);
+  const items = [];
+
+  for (let line of lines) {
+    let s = line.trim();
+    if (!s) continue;
+    const low = s.toLowerCase();
+
+    // pomiń nagłówki/stopki
+    if (RECEIPT_NOISE.some(w => low.includes(w))) continue;
+    // pomiń linie bez żadnej litery
+    if (!/[a-ząćęłńóśźż]/i.test(s)) continue;
+
+    // wyciągnij ilość typu "2 x", "3x", "0,540kg"
+    let qty = 1;
+    const xMatch = s.match(/(\d+)\s*[xX]\s/);
+    if (xMatch) qty = parseInt(xMatch[1]) || 1;
+
+    // usuń ceny / kody PTU / ilości z końca i środka
+    let name = s
+      .replace(/\d+[.,]\d{2}\s*[A-Da-d]?\b/g, ' ')   // ceny "3,49 A"
+      .replace(/\d+\s*[xX]\s*\d*[.,]?\d*/g, ' ')      // "2 x 1,50"
+      .replace(/\d+[.,]?\d*\s*(kg|g|ml|l|szt|x)\b/gi, ' ') // wagi/ilości
+      .replace(/\b[A-D]\b\s*$/g, ' ')                 // sam kod PTU
+      .replace(/[*#]+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // odetnij końcowe luźne cyfry/znaki
+    name = name.replace(/[\s.,;:\-]+$/,'').replace(/^[\s.,;:\-]+/,'').trim();
+
+    if (name.length < 2) continue;
+    if (!/[a-ząćęłńóśźż]/i.test(name)) continue;
+
+    const blocked = RECEIPT_BLOCK.some(w => low.includes(w));
+
+    items.push({
+      name: tidyName(name),
+      qty: qty,
+      unit: guessUnit(low),
+      category: guessCategory(low),
+      include: !blocked
+    });
+  }
+
+  parsedItems = items;
+  renderParsed();
+  if (items.length === 0) {
+    document.getElementById('parsedWrap').innerHTML =
+      `<div class="empty"><div class="emoji">🤔</div><p>Nie rozpoznano produktów.<br>Sprawdź wklejony tekst.</p></div>`;
+  }
+}
+
+function tidyName(n) {
+  n = n.toLowerCase();
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
+function guessUnit(low) {
+  if (/\bml\b|\bl\b|litr/.test(low)) return 'ml';
+  if (/\bkg\b|\bg\b|gram/.test(low)) return 'g';
+  if (/puszk/.test(low)) return 'puszka';
+  if (/słoik|sloik/.test(low)) return 'słoik';
+  return 'szt.';
+}
+
+const CAT_KEYWORDS = {
+  'Nabiał': ['mleko','ser','jogurt','śmietan','smietan','masło','maslo','twaróg','twarog','mozzarella','kefir','jaj'],
+  'Warzywa': ['pomidor','ogórek','ogorek','cebula','marchew','ziemniak','papryka','sałat','salat','czosnek','brokuł','brokul','kapust','pieczark'],
+  'Owoce': ['jabłk','jablk','banan','cytryn','pomarańcz','pomarancz','truskaw','winogron','gruszk','brzoskwin','śliw','sliw'],
+  'Mięso': ['kurczak','wołow','wolow','wieprz','szynk','kiełbas','kielbas','mięso','mieso','boczek','filet','parówk','parowk','indyk'],
+  'Suche': ['makaron','ryż','ryz','mąka','maka','kasza','płatk','platk','ryżu','chleb','bułk','bulk','cukier','sól','sol','herbat','kawa'],
+  'Przetwory': ['fasol','groszek','kukurydz','oliwk','konserw','dżem','dzem','passat','koncentrat'],
+  'Sosy/Pasty': ['sos','pesto','ketchup','majonez','musztard','past'],
+  'Tłuszcze': ['olej','oliwa','smalec']
+};
+
+function guessCategory(low) {
+  for (const [cat, kws] of Object.entries(CAT_KEYWORDS)) {
+    if (kws.some(k => low.includes(k))) return cat;
+  }
+  return 'Inne';
+}
+
+function renderParsed() {
+  const wrap = document.getElementById('parsedWrap');
+  if (parsedItems.length === 0) { wrap.innerHTML = ''; return; }
+
+  const cats = ['Przetwory','Sosy/Pasty','Nabiał','Suche','Tłuszcze','Warzywa','Mięso','Owoce','Inne'];
+  let html = `<p class="panel-intro" style="margin-top:16px;">Znaleziono <b>${parsedItems.length}</b> pozycji. Odznacz niechciane, popraw nazwy/ilości:</p>`;
+
+  parsedItems.forEach((it, i) => {
+    html += `
+      <div class="parsed-item ${it.include ? '' : 'off'}" id="parsed-${i}">
+        <div class="parsed-check" onclick="toggleParsed(${i})">${it.include ? '✓' : ''}</div>
+        <div class="parsed-body">
+          <input type="text" value="${esc(it.name)}" oninput="parsedItems[${i}].name=this.value">
+          <div class="parsed-controls">
+            <input class="pq" type="number" min="1" value="${it.qty}" oninput="parsedItems[${i}].qty=parseInt(this.value)||1">
+            <select onchange="parsedItems[${i}].category=this.value">
+              ${cats.map(c => `<option value="${c}" ${c === it.category ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html += `<button class="full-btn" onclick="commitParsed()">➕ Dodaj zaznaczone do spiżarni</button>`;
+  html += `<button class="full-btn secondary" onclick="clearReceipt()">Wyczyść</button>`;
+  wrap.innerHTML = html;
+}
+
+function toggleParsed(i) {
+  parsedItems[i].include = !parsedItems[i].include;
+  document.getElementById('parsed-' + i).classList.toggle('off', !parsedItems[i].include);
+  document.querySelector('#parsed-' + i + ' .parsed-check').textContent = parsedItems[i].include ? '✓' : '';
+}
+
+function commitParsed() {
+  const chosen = parsedItems.filter(it => it.include && it.name.trim());
+  if (chosen.length === 0) { showToast('Nie zaznaczono produktów'); return; }
+  chosen.forEach(it => upsertProduct({
+    name: it.name.trim(), brand: '', category: it.category, qty: it.qty, unit: it.unit
+  }));
+  save();
+  render();
+  clearReceipt();
+  showToast(`✅ Dodano ${chosen.length} produktów z paragonu!`);
+  setView('pantry');
+}
+
+function clearReceipt() {
+  parsedItems = [];
+  document.getElementById('receiptText').value = '';
+  document.getElementById('parsedWrap').innerHTML = '';
+}
+
+// ─── PRZEPISY (lokalna baza, dopasowanie do zapasów) ─────────────────────────
+// basic: składnik podstawowy (zakładamy że jest w domu) — nie liczy się jako brak
+const RECIPES = [
+  {
+    name: 'Makaron z pesto', emoji: '🍝', meal: 'Obiad',
+    ingredients: [
+      { kw: ['makaron','lasagne','ryż','ryz'], label: 'Makaron / ryż' },
+      { kw: ['pesto'], label: 'Pesto' },
+      { kw: ['mozzarella','ser','parmez'], label: 'Ser / mozzarella', optional: true },
+      { kw: ['olej','oliwa'], label: 'Olej', basic: true },
+      { kw: ['sól','sol'], label: 'Sól', basic: true }
+    ],
+    steps: [
+      'Ugotuj makaron w osolonej wodzie al dente.',
+      'Odcedź, wymieszaj z pesto i łyżką oleju.',
+      'Posyp serem / mozzarellą i podawaj.'
+    ]
+  },
+  {
+    name: 'Lasagne pomidorowe z mozzarellą', emoji: '🧀', meal: 'Obiad',
+    ingredients: [
+      { kw: ['lasagne'], label: 'Płaty lasagne' },
+      { kw: ['polpa','pomidory krojone','passat','pomidor'], label: 'Pomidory krojone' },
+      { kw: ['mozzarella','ser'], label: 'Mozzarella' },
+      { kw: ['ragù','ragu','dzik','mięso','mieso'], label: 'Sos mięsny (ragù)', optional: true },
+      { kw: ['olej','oliwa'], label: 'Olej', basic: true }
+    ],
+    steps: [
+      'Podgrzej pomidory z solą i pieprzem (opcjonalnie z sosem ragù).',
+      'Układaj warstwami: sos – płaty lasagne – sos – mozzarella.',
+      'Powtarzaj, na wierzch dużo mozzarelli.',
+      'Piecz ok. 35–40 min w 180°C.'
+    ]
+  },
+  {
+    name: 'Curry kokosowe z ryżem', emoji: '🍛', meal: 'Obiad',
+    ingredients: [
+      { kw: ['mleko kokos','kokos'], label: 'Mleko kokosowe' },
+      { kw: ['ryż','ryz'], label: 'Ryż' },
+      { kw: ['fasol','cieciorka','ciecierzyc'], label: 'Fasola / strączki' },
+      { kw: ['groszek'], label: 'Groszek', optional: true },
+      { kw: ['kukurydz'], label: 'Kukurydza', optional: true },
+      { kw: ['curry','przypraw'], label: 'Curry / przyprawy', basic: true }
+    ],
+    steps: [
+      'Ugotuj ryż.',
+      'Zagotuj mleko kokosowe z przyprawami curry.',
+      'Dodaj odsączoną fasolę, groszek i kukurydzę, gotuj 10 min.',
+      'Podawaj z ryżem.'
+    ]
+  },
+  {
+    name: 'Sałatka z fasoli, kukurydzy i groszku', emoji: '🥗', meal: 'Kolacja',
+    ingredients: [
+      { kw: ['czerwona fasol','fasol'], label: 'Czerwona fasola' },
+      { kw: ['kukurydz'], label: 'Kukurydza' },
+      { kw: ['groszek'], label: 'Groszek' },
+      { kw: ['oliwk'], label: 'Oliwki', optional: true },
+      { kw: ['olej','oliwa'], label: 'Oliwa / olej', basic: true }
+    ],
+    steps: [
+      'Odsącz fasolę, kukurydzę i groszek.',
+      'Wymieszaj w misce, dodaj oliwki.',
+      'Skrop oliwą, dopraw solą i pieprzem.'
+    ]
+  },
+  {
+    name: 'Zupa pomidorowa z ryżem', emoji: '🍲', meal: 'Obiad',
+    ingredients: [
+      { kw: ['polpa','pomidory krojone','pomidor','passat'], label: 'Pomidory krojone' },
+      { kw: ['ryż','ryz','makaron'], label: 'Ryż / makaron' },
+      { kw: ['śmietan','smietan'], label: 'Śmietanka', optional: true },
+      { kw: ['sól','sol'], label: 'Sól', basic: true }
+    ],
+    steps: [
+      'Zagotuj pomidory z 2 szklankami wody i solą.',
+      'Dodaj ugotowany ryż lub makaron.',
+      'Zabiel śmietanką, dopraw do smaku.'
+    ]
+  },
+  {
+    name: 'Ryż z sosem z dzika (ragù)', emoji: '🍖', meal: 'Obiad',
+    ingredients: [
+      { kw: ['ragù','ragu','dzik'], label: 'Ragù di Cinghiale' },
+      { kw: ['ryż','ryz','makaron','lasagne'], label: 'Ryż / makaron' },
+      { kw: ['mozzarella','ser'], label: 'Ser', optional: true }
+    ],
+    steps: [
+      'Ugotuj ryż lub makaron.',
+      'Podgrzej sos ragù.',
+      'Połącz, posyp serem.'
+    ]
+  },
+  {
+    name: 'Fasolka w sosie pomidorowym', emoji: '🫘', meal: 'Obiad',
+    ingredients: [
+      { kw: ['fasola cannellini','fasol'], label: 'Fasola' },
+      { kw: ['polpa','pomidory krojone','pomidor','passat'], label: 'Pomidory krojone' },
+      { kw: ['olej','oliwa'], label: 'Olej', basic: true },
+      { kw: ['sól','sol','przypraw'], label: 'Przyprawy', basic: true }
+    ],
+    steps: [
+      'Podsmaż chwilę pomidory na oleju.',
+      'Dodaj odsączoną fasolę, dopraw.',
+      'Duś 10–15 min. Pyszne z chlebem lub ryżem.'
+    ]
+  },
+  {
+    name: 'Brzoskwinie z bitą śmietaną', emoji: '🍑', meal: 'Śniadanie',
+    ingredients: [
+      { kw: ['brzoskwin'], label: 'Brzoskwinie w syropie' },
+      { kw: ['śmietan','smietan'], label: 'Śmietanka 30%' },
+      { kw: ['cukier'], label: 'Cukier', basic: true }
+    ],
+    steps: [
+      'Ubij schłodzoną śmietankę z odrobiną cukru.',
+      'Pokrój brzoskwinie, ułóż w pucharku.',
+      'Nałóż bitą śmietanę. Gotowe!'
+    ]
+  },
+  {
+    name: 'Smażony ryż z warzywami', emoji: '🍚', meal: 'Kolacja',
+    ingredients: [
+      { kw: ['ryż','ryz'], label: 'Ryż' },
+      { kw: ['groszek'], label: 'Groszek' },
+      { kw: ['kukurydz'], label: 'Kukurydza' },
+      { kw: ['olej','oliwa'], label: 'Olej', basic: true },
+      { kw: ['sól','sol','sos sojowy'], label: 'Przyprawy', basic: true }
+    ],
+    steps: [
+      'Ugotuj i ostudź ryż.',
+      'Na rozgrzanym oleju podsmaż groszek i kukurydzę.',
+      'Dodaj ryż, smaż 5 min, dopraw.'
+    ]
+  },
+  {
+    name: 'Zupka instant po azjatycku', emoji: '🍜', meal: 'Kolacja',
+    ingredients: [
+      { kw: ['makaron instant','vifon','zupk'], label: 'Makaron instant' },
+      { kw: ['kukurydz'], label: 'Kukurydza', optional: true },
+      { kw: ['groszek'], label: 'Groszek', optional: true },
+      { kw: ['jaj'], label: 'Jajko', optional: true }
+    ],
+    steps: [
+      'Zalej makaron wrzątkiem wg instrukcji.',
+      'Dodaj kukurydzę / groszek.',
+      'Możesz dorzucić ugotowane jajko.'
+    ]
+  }
+];
+
+// Czy posiadam składnik (qty > 0)?
+function ownsIngredient(ing) {
+  return products.some(p => p.qty > 0 &&
+    ing.kw.some(k => (p.name + ' ' + (p.brand || '')).toLowerCase().includes(k.toLowerCase())));
+}
+
+function evalRecipe(r) {
+  let have = 0, needed = 0, missing = [];
+  r.ingredients.forEach(ing => {
+    if (ing.basic) return;            // podstawowe — pomijamy w liczeniu
+    const owned = ownsIngredient(ing);
+    if (ing.optional) { if (owned) have++; return; } // opcjonalne tylko jako bonus
+    needed++;
+    if (owned) have++; else missing.push(ing.label);
+  });
+  return { have, needed, missing, ratio: needed ? have / needed : 1 };
+}
+
+function renderMealTabs() {
+  const meals = ['Wszystkie', 'Śniadanie', 'Obiad', 'Kolacja'];
+  const icons = { 'Wszystkie': '🍽', 'Śniadanie': '🌅', 'Obiad': '☀️', 'Kolacja': '🌙' };
+  document.getElementById('mealTabs').innerHTML = meals.map(m =>
+    `<div class="tab ${m === activeMeal ? 'active' : ''}" onclick="setMeal('${m}')">${icons[m]} ${m}</div>`
+  ).join('');
+}
+
+function setMeal(m) { activeMeal = m; renderRecipes(); }
+
+function renderRecipes() {
+  renderMealTabs();
+  const panel = document.getElementById('recipesPanel');
+
+  let list = RECIPES
+    .filter(r => activeMeal === 'Wszystkie' || r.meal === activeMeal)
+    .map(r => ({ r, e: evalRecipe(r) }))
+    .sort((a, b) => b.e.ratio - a.e.ratio || b.e.have - a.e.have);
+
+  if (list.length === 0) {
+    panel.innerHTML = `<div class="empty"><div class="emoji">🍳</div><p>Brak przepisów</p></div>`;
+    return;
+  }
+
+  panel.innerHTML = '<p class="panel-intro">Dania dopasowane do tego, co masz w spiżarni. Na górze te, na które masz wszystko.</p>' +
+    list.map(({ r, e }) => {
+      const full = e.missing.length === 0;
+      return `
+        <div class="recipe-card">
+          <div class="recipe-head">
+            <span class="recipe-emoji">${r.emoji}</span>
+            <div style="flex:1;min-width:0;">
+              <div class="recipe-title">${esc(r.name)}</div>
+              <span class="recipe-meal">${r.meal}</span>
+            </div>
+            <span class="recipe-badge ${full ? 'badge-full' : 'badge-partial'}">
+              ${full ? '✓ Masz wszystko' : e.have + '/' + e.needed}
+            </span>
+          </div>
+          <ul class="ingredients">
+            ${r.ingredients.map(ing => {
+              if (ing.basic) return `<li class="ing-basic"><span class="ing-mark">•</span>${esc(ing.label)} <span style="font-size:11px;">(podstawowy)</span></li>`;
+              const owned = ownsIngredient(ing);
+              const cls = owned ? 'ing-have' : (ing.optional ? 'ing-basic' : 'ing-miss');
+              const mark = owned ? '✓' : (ing.optional ? '○' : '✗');
+              const opt = ing.optional && !owned ? ' (opcjonalnie)' : '';
+              return `<li class="${cls}"><span class="ing-mark">${mark}</span>${esc(ing.label)}${opt}</li>`;
+            }).join('')}
+          </ul>
+          ${e.missing.length ? `<div class="miss-note">Brakuje: ${e.missing.map(esc).join(', ')}</div>` : ''}
+          <details class="recipe-steps">
+            <summary>👨‍🍳 Sposób przygotowania</summary>
+            <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+          </details>
+        </div>`;
+    }).join('');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+render();
+initCloud();
+</script>
+</body>
+</html>
