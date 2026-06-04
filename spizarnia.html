@@ -2306,17 +2306,31 @@ function setRecipeMode(m) { recipeMode = m; renderRecipes(); }
 function renderSuggestions() {
   const panel = document.getElementById('recipesPanel');
 
+  // Sekcja AI (na górze Sugestii)
+  let html = `<button class="full-btn" onclick="generateAIRecipes()" ${aiLoading ? 'disabled' : ''}>${aiLoading ? '✨ Generuję…' : '✨ Wygeneruj przepisy AI'}</button>`;
+  if (aiLoading) {
+    html += `<div class="empty"><div class="emoji">👨‍🍳</div><p>AI dobiera przepisy z Twojej spiżarni…</p></div>`;
+  } else if (aiError) {
+    html += `<div class="miss-note" style="margin-top:12px;">Nie udało się wygenerować (${esc(aiError)}). Darmowy limit Gemini bywa chwilowy — spróbuj za kilkanaście sekund.</div>`;
+  } else if (aiResults.length) {
+    html += `<p class="panel-intro" style="margin-top:14px;">✨ Propozycje AI — kliknij <b>💾 Zapisz</b>, by dodać do „Moich":</p>`;
+    html += aiResults.map((r, i) => recipeCardHtml(r, { save: i })).join('');
+  }
+
+  // Dopasowane do spiżarni
   let list = RECIPES
     .filter(r => activeMeal === 'Wszystkie' || r.meal === activeMeal)
     .map(r => ({ r, e: evalRecipe(r) }))
     .sort((a, b) => b.e.ratio - a.e.ratio || b.e.have - a.e.have);
 
+  html += `<p class="panel-intro" style="margin-top:18px;">💡 Dopasowane do tego, co masz w spiżarni:</p>`;
   if (list.length === 0) {
-    panel.innerHTML = `<div class="empty"><div class="emoji">🍳</div><p>Brak przepisów</p></div>`;
+    html += `<div class="empty"><div class="emoji">🍳</div><p>Brak dopasowanych przepisów</p></div>`;
+    panel.innerHTML = html;
     return;
   }
 
-  panel.innerHTML = '<p class="panel-intro">Dania dopasowane do tego, co masz w spiżarni. Na górze te, na które masz wszystko.</p>' +
+  panel.innerHTML = html +
     list.map(({ r, e }) => {
       const full = e.missing.length === 0;
       return `
@@ -2383,24 +2397,13 @@ function recipeCardHtml(r, opts = {}) {
 
 function renderMyRecipes() {
   const panel = document.getElementById('recipesPanel');
-  let html = '';
-  html += `<button class="full-btn" onclick="generateAIRecipes()" ${aiLoading ? 'disabled' : ''}>${aiLoading ? '✨ Generuję…' : '✨ Wygeneruj przepisy AI'}</button>`;
-  html += `<button class="full-btn secondary" onclick="openRecipeForm()">➕ Dodaj własny przepis</button>`;
-
-  if (aiLoading) {
-    html += `<div class="empty"><div class="emoji">👨‍🍳</div><p>AI dobiera przepisy z Twojej spiżarni…</p></div>`;
-  } else if (aiError) {
-    html += `<div class="miss-note" style="margin-top:12px;">Nie udało się wygenerować (${esc(aiError)}). Darmowy limit Gemini bywa chwilowy — spróbuj za kilkanaście sekund.</div>`;
-  } else if (aiResults.length) {
-    html += `<p class="panel-intro" style="margin-top:14px;">✨ Wygenerowane — kliknij <b>💾 Zapisz</b>, by dodać do „Moich":</p>`;
-    html += aiResults.map((r, i) => recipeCardHtml(r, { save: i })).join('');
-  }
+  let html = `<button class="full-btn secondary" onclick="openRecipeForm()">➕ Dodaj własny przepis</button>`;
 
   const mine = myRecipes.filter(r => activeMeal === 'Wszystkie' || r.meal === activeMeal);
-  html += `<p class="panel-intro" style="margin-top:18px;">📖 Twoje zapisane przepisy${myRecipes.length ? ' (' + myRecipes.length + ')' : ''}:</p>`;
+  html += `<p class="panel-intro" style="margin-top:14px;">📖 Twoje zapisane przepisy${myRecipes.length ? ' (' + myRecipes.length + ')' : ''}:</p>`;
   html += mine.length
     ? mine.map(r => recipeCardHtml(r, { del: r.id })).join('')
-    : `<div class="empty"><div class="emoji">📖</div><p>Brak zapisanych${activeMeal !== 'Wszystkie' ? ' dla: ' + activeMeal : ''}.<br>Zapisz przepis z AI albo dodaj własny.</p></div>`;
+    : `<div class="empty"><div class="emoji">📖</div><p>Brak zapisanych${activeMeal !== 'Wszystkie' ? ' dla: ' + activeMeal : ''}.<br>Zapisz przepis z 💡 Sugestii albo dodaj własny.</p></div>`;
   panel.innerHTML = html;
 }
 
@@ -2409,7 +2412,8 @@ async function generateAIRecipes() {
   if (aiLoading) return;
   if (!CLOUD_ENABLED) { showToast('AI wymaga połączenia z chmurą'); return; }
   aiLoading = true; aiError = '';
-  if (activeView === 'recipes' && recipeMode === 'mine') renderRecipes();
+  recipeMode = 'sugg';
+  if (activeView === 'recipes') renderRecipes();
   try {
     const owned = products.filter(p => (Number(p.qty) || 0) > 0)
       .map(p => ({ name: p.name, brand: p.brand, qty: p.qty, unit: p.unit }));
@@ -2425,7 +2429,7 @@ async function generateAIRecipes() {
     aiError = String(e.message || e);
   } finally {
     aiLoading = false;
-    recipeMode = 'mine';
+    recipeMode = 'sugg';
     if (activeView === 'recipes') renderRecipes();
   }
 }
