@@ -1878,9 +1878,13 @@ const SHELF_CAT = {
   'Ryby i owoce morza': 2, 'Nabiał': 9, 'Wędliny': 7, 'Mrożonki': 180
 };
 function estimateShelfLife(p) {
+  // Tylko psujące się kategorie dostają datę — trwałe (Przetwory, Suche, Przyprawy,
+  // Sosy/Pasty, oleje, makarony, napoje, słodycze…) zostają bez daty, nawet jeśli
+  // nazwa zawiera np. „mleko" (mleko kokosowe w puszce = Przetwory → bez daty).
+  if (!Object.prototype.hasOwnProperty.call(SHELF_CAT, p.category)) return null;
   const s = ((p.name || '') + ' ' + (p.brand || '')).toLowerCase();
   for (const [kws, d] of SHELF_KW) { if (kws.some(k => s.includes(k))) return d; }
-  return Object.prototype.hasOwnProperty.call(SHELF_CAT, p.category) ? SHELF_CAT[p.category] : null;
+  return SHELF_CAT[p.category];
 }
 // Uzupełnij szacowane daty tam, gdzie ich brak (psujące się produkty). Zwraca liczbę zmian.
 function estimateExpiries() {
