@@ -257,7 +257,7 @@
       background: color-mix(in srgb, var(--accent, var(--green)) 12%, white);
     }
 
-    .product-info { flex: 1; min-width: 0; }
+    .product-info { flex: 1; min-width: 0; cursor: pointer; }
 
     .product-name {
       font-size: 15px;
@@ -289,6 +289,40 @@
       padding: 2px 8px;
       border-radius: 7px;
     }
+
+    .product-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .product-unit { margin-top: 0 !important; }
+
+    .exp-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 7px;
+      white-space: nowrap;
+    }
+    .exp-badge.exp-ok   { background: #eef2ec; color: #6b7d68; }
+    .exp-badge.exp-soon { background: var(--amber-light); color: #9a6a12; }
+    .exp-badge.exp-bad  { background: var(--red-light); color: var(--red); }
+
+    /* ALERT DAT WAŻNOŚCI */
+    .expiry-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: linear-gradient(180deg, #fff8ee, #fdf1e0);
+      border: 1px solid #f0dcc0;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+    }
+    .expiry-banner.active { border-color: var(--green); background: var(--green-light); }
+    .expiry-banner .eb-bad  { color: var(--red); }
+    .expiry-banner .eb-soon { color: #9a6a12; }
+    .expiry-banner .eb-action { margin-left: auto; color: var(--green-dark); font-weight: 700; }
 
     /* QUANTITY CONTROLS */
     .qty-controls {
@@ -866,7 +900,7 @@
 <!-- ─── MODAL: DODAJ PRODUKT ────────────────────────────────────── -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalIfOutside(event)">
   <div class="modal" id="modal">
-    <h2>➕ Dodaj produkt</h2>
+    <h2 id="modalTitle">➕ Dodaj produkt</h2>
     <label>Nazwa produktu *</label>
     <input type="text" id="newName" placeholder="np. Makaron spaghetti">
     <label>Marka / uwagi</label>
@@ -904,9 +938,11 @@
       <option value="Słone przekąski">Słone przekąski</option>
       <option value="Inne">Inne</option>
     </select>
+    <label>Data ważności</label>
+    <input type="date" id="newExpiry">
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal()">Anuluj</button>
-      <button class="btn btn-primary" onclick="addProduct()">Dodaj</button>
+      <button class="btn btn-primary" id="modalSubmit" onclick="saveProduct()">Dodaj</button>
     </div>
   </div>
 </div>
@@ -1101,6 +1137,26 @@ const CATEGORY_COLORS = {
 };
 function catColor(c) { return CATEGORY_COLORS[c] || '#2f6b3f'; }
 
+// ─── DATY WAŻNOŚCI ───────────────────────────────────────────────────────────
+const SOON_DAYS = 5; // ile dni przed = „kończy się wkrótce"
+function expiryInfo(expiry) {
+  if (!expiry) return null;
+  const d = new Date(expiry + 'T00:00:00');
+  if (isNaN(d.getTime())) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((d - today) / 86400000);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dateStr = dd + '.' + mm;
+  if (days < 0)  return { cls: 'exp-bad',  label: '⚠ po terminie', days };
+  if (days === 0) return { cls: 'exp-bad',  label: '⚠ dziś!', days };
+  if (days <= SOON_DAYS) return { cls: 'exp-soon', label: `do ${dateStr} · ${days} dni`, days };
+  return { cls: 'exp-ok', label: `do ${dateStr}`, days };
+}
+
+let expiringFilter = false;
+function toggleExpiring() { expiringFilter = !expiringFilter; render(); }
+
 function getCategories() {
   return ['Wszystkie', ...new Set(products.map(p => p.category))];
 }
@@ -1110,7 +1166,9 @@ function getFiltered() {
   return products.filter(p => {
     const matchTab = activeTab === 'Wszystkie' || p.category === activeTab;
     const matchQ = !q || p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q);
-    return matchTab && matchQ;
+    let matchExp = true;
+    if (expiringFilter) { const e = expiryInfo(p.expiry); matchExp = !!e && e.days <= SOON_DAYS; }
+    return matchTab && matchQ && matchExp;
   });
 }
 
@@ -1131,11 +1189,22 @@ function render() {
   document.getElementById('statsQty').textContent = products.reduce((s, p) => s + (Number(p.qty) || 0), 0);
   document.getElementById('statsCats').textContent = cats.length - 1;
 
+  // Alert dat ważności (po całej spiżarni)
+  let expired = 0, soon = 0;
+  products.forEach(p => { const e = expiryInfo(p.expiry); if (e) { if (e.days < 0) expired++; else if (e.days <= SOON_DAYS) soon++; } });
+  let banner = '';
+  if (expired + soon > 0) {
+    banner = `<div class="expiry-banner ${expiringFilter ? 'active' : ''}" onclick="toggleExpiring()">`
+      + (expired ? `<span class="eb-bad">⚠ ${expired} po terminie</span>` : '')
+      + (soon ? `<span class="eb-soon">⏳ ${soon} kończy się</span>` : '')
+      + `<span class="eb-action">${expiringFilter ? '✕ wszystko' : 'pokaż →'}</span></div>`;
+  }
+
   const filtered = getFiltered();
   const listEl = document.getElementById('list');
 
   if (filtered.length === 0) {
-    listEl.innerHTML = `<div class="empty"><div class="emoji">🔍</div><p>Brak wyników</p></div>`;
+    listEl.innerHTML = banner + `<div class="empty"><div class="emoji">🔍</div><p>${expiringFilter ? 'Nic się nie kończy 🎉' : 'Brak wyników'}</p></div>`;
     return;
   }
 
@@ -1145,19 +1214,24 @@ function render() {
     grouped[p.category].push(p);
   });
 
-  let html = '';
+  let html = banner;
   for (const [cat, items] of Object.entries(grouped)) {
     if (activeTab === 'Wszystkie') {
       html += `<div class="category-label" style="--accent:${catColor(cat)}"><span class="cat-dot"></span>${CATEGORY_ICONS[cat] || ''} ${esc(cat)} <span class="cat-n">${items.length}</span></div>`;
     }
     items.forEach(p => {
+      const e = expiryInfo(p.expiry);
+      const expBadge = e ? `<span class="exp-badge ${e.cls}">${e.label}</span>` : '';
       html += `
         <div class="product-card ${p.qty === 0 ? 'zero' : ''}" style="--accent:${catColor(p.category)}">
           <div class="card-ico">${CATEGORY_ICONS[p.category] || '📦'}</div>
-          <div class="product-info">
+          <div class="product-info" onclick="openModal(${p.id})">
             <div class="product-name">${esc(p.name)}</div>
             ${p.brand ? `<div class="product-meta">${esc(p.brand)}</div>` : ''}
-            <div class="product-unit">${p.qty} ${esc(p.unit)}</div>
+            <div class="product-tags">
+              <span class="product-unit">${p.qty} ${esc(p.unit)}</span>
+              ${expBadge}
+            </div>
           </div>
           <div class="qty-controls">
             <button class="qty-btn minus" onclick="changeQty(${p.id}, -1)">−</button>
@@ -1215,20 +1289,31 @@ function deleteProduct(id) {
   showToast(`🗑 Usunięto: ${p.name}`);
 }
 
-function addProduct() {
+let editingId = null;
+
+function saveProduct() {
   const name = document.getElementById('newName').value.trim();
   const brand = document.getElementById('newBrand').value.trim();
-  const qty = parseInt(document.getElementById('newQty').value) || 1;
+  const qtyRaw = parseInt(document.getElementById('newQty').value);
+  const qty = isNaN(qtyRaw) ? 1 : qtyRaw;
   const unit = document.getElementById('newUnit').value.trim() || 'szt.';
   const category = document.getElementById('newCat').value;
+  const expiry = document.getElementById('newExpiry').value || '';
 
   if (!name) { document.getElementById('newName').focus(); return; }
 
-  products.push({ id: nextId++, name, brand, category, qty, unit, date: todayStr() });
-  save();
-  render();
-  closeModal();
-  showToast(`✅ Dodano: ${name}`);
+  if (editingId != null) {
+    const p = products.find(x => x.id === editingId);
+    if (p) Object.assign(p, { name, brand, category, qty, unit, expiry, date: todayStr() });
+    save(); render();
+    if (activeView === 'recipes') renderRecipes();
+    closeModal();
+    showToast(`✏️ Zapisano: ${name}`);
+  } else {
+    products.push({ id: nextId++, name, brand, category, qty, unit, expiry, date: todayStr() });
+    save(); render(); closeModal();
+    showToast(`✅ Dodano: ${name}`);
+  }
 }
 
 // Dodaj lub zwiększ ilość istniejącego (po nazwie+marce) — wg CLAUDE.md
@@ -1244,13 +1329,33 @@ function upsertProduct({ name, brand, category, qty, unit }) {
 }
 
 // ─── MODAL ───────────────────────────────────────────────────────────────────
-function openModal() {
-  document.getElementById('newName').value = '';
-  document.getElementById('newBrand').value = '';
-  document.getElementById('newQty').value = 1;
-  document.getElementById('newUnit').value = '';
+function openModal(id) {
+  editingId = (id !== undefined && id !== null) ? id : null;
+  const title = document.getElementById('modalTitle');
+  const btn = document.getElementById('modalSubmit');
+
+  if (editingId != null) {
+    const p = products.find(x => x.id === editingId);
+    if (!p) { editingId = null; return; }
+    document.getElementById('newName').value = p.name || '';
+    document.getElementById('newBrand').value = p.brand || '';
+    document.getElementById('newQty').value = p.qty != null ? p.qty : 1;
+    document.getElementById('newUnit').value = p.unit || '';
+    document.getElementById('newCat').value = p.category || 'Inne';
+    document.getElementById('newExpiry').value = p.expiry || '';
+    title.textContent = '✏️ Edytuj produkt';
+    btn.textContent = 'Zapisz';
+  } else {
+    document.getElementById('newName').value = '';
+    document.getElementById('newBrand').value = '';
+    document.getElementById('newQty').value = 1;
+    document.getElementById('newUnit').value = '';
+    document.getElementById('newExpiry').value = '';
+    title.textContent = '➕ Dodaj produkt';
+    btn.textContent = 'Dodaj';
+  }
   document.getElementById('modalOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('newName').focus(), 300);
+  if (editingId == null) setTimeout(() => document.getElementById('newName').focus(), 300);
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
