@@ -1535,7 +1535,7 @@ async function initCloud() {
     }
     await loadShopping();
     await loadMyRecipes();
-    if (estimateExpiries()) { save(); render(); }
+    if (cleanBadEstimates() + estimateExpiries() > 0) { save(); render(); }
     subscribeCloud();
   } catch (e) {
     cloudReady = false;
@@ -1886,6 +1886,15 @@ function estimateShelfLife(p) {
   for (const [kws, d] of SHELF_KW) { if (kws.some(k => s.includes(k))) return d; }
   return SHELF_CAT[p.category];
 }
+// Usuń BŁĘDNE szacowane daty (z trwałych produktów, które dostały „≈" przez starą wersję).
+function cleanBadEstimates() {
+  let n = 0;
+  products.forEach(p => {
+    if (p.est && estimateShelfLife(p) == null) { p.expiry = ''; p.est = false; n++; }
+  });
+  return n;
+}
+
 // Uzupełnij szacowane daty tam, gdzie ich brak (psujące się produkty). Zwraca liczbę zmian.
 function estimateExpiries() {
   let n = 0;
