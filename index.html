@@ -696,7 +696,7 @@
 <!-- ─── VIEW: PARAGON ───────────────────────────────────────────── -->
 <section class="view" id="view-receipt">
   <div class="panel">
-    <p class="panel-intro">Zrób zdjęcie paragonu (lub wybierz z galerii) albo wklej tekst e-paragonu. Aplikacja odczyta produkty spożywcze (pomija chemię, alkohol, higienę). Sprawdź listę i dodaj do spiżarni.</p>
+    <p class="panel-intro">Zrób zdjęcie paragonu, wklej tekst albo <b>cały JSON e-paragonu</b> (np. z aplikacji Biedronki) — wtedy produkty czytane są dokładnie, bez OCR. Aplikacja pomija chemię, alkohol i higienę. Sprawdź listę i dodaj do spiżarni.</p>
 
     <div class="photo-drop" id="photoDrop" onclick="document.getElementById('receiptPhoto').click()">
       <div class="pd-ico">📸</div>
@@ -1218,8 +1218,99 @@ async function handleReceiptPhotos(fileList) {
   ta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+// ─── PARAGON: PARSER JSON (e-paragon, np. Biedronka/JPK_KASA) ─────────────────
+function b64urlToStr(s) {
+  s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  try { return decodeURIComponent(escape(atob(s))); }
+  catch (e) { try { return atob(s); } catch (e2) { return ''; } }
+}
+
+// Wyciągnij pozycje (towar) z payloadu JPK_KASA
+function extractFromPozycje(p) {
+  const rows = [];
+  let poz = null;
+  if (p && p.dokument && p.dokument.paragon && Array.isArray(p.dokument.paragon.pozycja)) poz = p.dokument.paragon.pozycja;
+  else if (p && p.paragon && Array.isArray(p.paragon.pozycja)) poz = p.paragon.pozycja;
+  else if (p && Array.isArray(p.pozycja)) poz = p.pozycja;
+  if (Array.isArray(poz)) {
+    poz.forEach(x => {
+      const t = (x && x.towar) ? x.towar : x;
+      if (t && t.nazwa && !t.oper) rows.push({ name: t.nazwa, qty: parseInt(t.ilosc) || 1 });
+    });
+  }
+  return rows;
+}
+
+// Zwraca listę {name, qty} z dowolnego znanego kształtu e-paragonu albo null
+function extractReceiptRows(obj) {
+  let rows = [];
+  // 1) Biedronka: body[].sellLine
+  if (obj && Array.isArray(obj.body)) {
+    obj.body.forEach(el => {
+      const s = el && el.sellLine;
+      if (s && !s.isStorno && s.name) rows.push({ name: s.name, qty: parseInt(s.quantity) || 1 });
+    });
+    if (rows.length) return rows;
+  }
+  // 2) Podpisany token JWT w polu "data" → payload z pozycjami
+  if (obj && typeof obj.data === 'string' && obj.data.split('.').length === 3) {
+    try {
+      const payload = JSON.parse(b64urlToStr(obj.data.split('.')[1]));
+      const r = extractFromPozycje(payload);
+      if (r.length) return r;
+    } catch (e) {}
+  }
+  // 3) Sam payload (dokument / paragon / pozycja)
+  const r3 = extractFromPozycje(obj);
+  if (r3.length) return r3;
+  // 4) Ogólne tablice pozycji
+  const arr = obj && (obj.items || obj.lines || obj.products || obj.positions);
+  if (Array.isArray(arr)) {
+    arr.forEach(it => {
+      const name = it.name || it.nazwa || it.productName || it.desc;
+      if (name) rows.push({ name, qty: parseInt(it.quantity || it.qty || it.ilosc || it.count) || 1 });
+    });
+  }
+  return rows;
+}
+
+function tryParseReceiptJSON(raw) {
+  const t = (raw || '').trim();
+  if (!(t.startsWith('{') || t.startsWith('['))) return null;
+  let obj;
+  try { obj = JSON.parse(t); } catch (e) { return null; }
+  const rows = extractReceiptRows(obj);
+  return (rows && rows.length) ? rows : null;
+}
+
+// Sklejone nazwy z paragonu → czytelne (rozdziel wyrazy, utnij kod PTU)
+function cleanReceiptName(n) {
+  n = String(n || '');
+  n = n.replace(/\s+[A-G]\s*$/, ' ');                                  // końcowy kod PTU/VAT
+  n = n.replace(/([a-ząćęłńóśźż])([A-ZĄĆĘŁŃÓŚŹŻ])/g, '$1 $2');         // camelCase → spacja
+  n = n.replace(/([A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ])(\d)/g, '$1 $2');         // litera→cyfra
+  n = n.replace(/\s{2,}/g, ' ').trim();
+  return n;
+}
+
 function parseReceipt() {
   const raw = document.getElementById('receiptText').value;
+
+  // Najpierw spróbuj jako e-paragon JSON (dokładne dane, bez OCR)
+  const jsonRows = tryParseReceiptJSON(raw);
+  if (jsonRows) {
+    parsedItems = jsonRows.map(r => {
+      const name = cleanReceiptName(r.name);
+      const low = (r.name + ' ' + name).toLowerCase();
+      const blocked = RECEIPT_BLOCK.some(w => low.includes(w));
+      return { name, qty: r.qty || 1, unit: guessUnit(low), category: guessCategory(low), include: !blocked };
+    });
+    renderParsed();
+    showToast(`🧾 Wczytano e-paragon: ${parsedItems.length} pozycji`);
+    return;
+  }
+
   const lines = raw.split(/\r?\n/);
   const items = [];
 
