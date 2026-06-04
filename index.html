@@ -1068,12 +1068,12 @@
     <input type="text" id="newBrand" placeholder="np. Barilla">
     <div class="modal-row">
       <div>
-        <label>Ilość *</label>
+        <label>Ilość (szt./op.) *</label>
         <input type="number" id="newQty" value="1" min="0" step="1">
       </div>
       <div>
-        <label>Jednostka</label>
-        <input type="text" id="newUnit" placeholder="szt / op / g / ml">
+        <label>Jednostka / rozmiar</label>
+        <input type="text" id="newUnit" placeholder="np. szt, op, sasz, 250 ml, 500 g">
       </div>
     </div>
     <label>Kategoria</label>
@@ -1680,7 +1680,7 @@ function render() {
             <div class="product-name">${esc(p.name)}</div>
             ${p.brand ? `<div class="product-meta">${esc(p.brand)}</div>` : ''}
             <div class="product-tags">
-              <span class="product-unit">${p.qty} ${esc(p.unit)}</span>
+              <span class="product-unit">${p.qty}${/\d/.test(String(p.unit)) ? ' × ' : ' '}${esc(p.unit)}</span>
               ${expBadge}
             </div>
           </div>
