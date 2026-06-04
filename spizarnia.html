@@ -2555,7 +2555,7 @@ function recipeCardHtml(r, opts = {}) {
         }).join('')}
       </ul>
       ${missingList.length
-        ? `<div class="miss-note">Brakuje: ${missingList.length} składnik(ów)<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missingList))}')">🛒 Do listy</button></div>`
+        ? `<div class="miss-note">Brakuje: ${missingList.map(esc).join(', ')}<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missingList))}')">🛒 Do listy</button></div>`
         : `<div class="have-all">✓ Masz wszystkie składniki</div>`}
       <details class="recipe-steps">
         <summary>👨‍🍳 Sposób przygotowania</summary>
