@@ -1164,12 +1164,12 @@
 <!-- ─── VIEW: PARAGON ───────────────────────────────────────────── -->
 <section class="view" id="view-receipt">
   <div class="panel">
-    <p class="panel-intro">Zrób zdjęcie paragonu, wklej tekst albo <b>cały JSON e-paragonu</b> (np. z aplikacji Biedronki) — wtedy produkty czytane są dokładnie, bez OCR. Aplikacja pomija chemię, alkohol i higienę. Sprawdź listę i dodaj do spiżarni.</p>
+    <p class="panel-intro">Zrób zdjęcie paragonu — <b>✨ AI (Gemini) rozpozna produkty</b> wraz z ilością i kategorią. Możesz też wkleić <b>JSON e-paragonu</b> (np. z apki Biedronki) albo zwykły tekst. Chemia, alkohol i higiena są pomijane. Sprawdź listę i dodaj do spiżarni.</p>
 
     <div class="photo-drop" id="photoDrop" onclick="document.getElementById('receiptPhoto').click()">
       <div class="pd-ico">📸</div>
-      <div class="pd-main">Dodaj zdjęcie paragonu</div>
-      <div class="pd-sub">Aparat lub galeria · możesz dodać kilka zdjęć</div>
+      <div class="pd-main">Zdjęcie paragonu → ✨ AI</div>
+      <div class="pd-sub">Aparat lub galeria · można dodać kilka zdjęć</div>
     </div>
     <input type="file" id="receiptPhoto" accept="image/*" capture="environment" multiple
            style="display:none" onchange="handleReceiptPhotos(this.files)">
@@ -2342,56 +2342,73 @@ async function handleReceiptPhotos(fileList) {
   // pozwól wybrać te same pliki ponownie później
   document.getElementById('receiptPhoto').value = '';
 
+  if (!CLOUD_ENABLED) { showToast('Rozpoznawanie AI wymaga internetu'); return; }
+
   const progress = document.getElementById('ocrProgress');
   const label = document.getElementById('ocrLabel');
   const fill = document.getElementById('ocrBarFill');
   progress.classList.add('show');
-  fill.style.width = '0%';
-  label.textContent = 'Ładuję moduł OCR…';
+  fill.style.width = '15%';
+  label.textContent = '✨ AI rozpoznaje produkty…';
 
-  let Tesseract;
-  try {
-    Tesseract = await loadTesseract();
-  } catch (e) {
-    progress.classList.remove('show');
-    showToast('⚠️ ' + e.message);
-    return;
-  }
-
-  let allText = [];
+  const all = [];
   try {
     for (let n = 0; n < files.length; n++) {
-      const baseMsg = files.length > 1 ? `Zdjęcie ${n + 1}/${files.length}: ` : '';
-      const { data } = await Tesseract.recognize(files[n], 'pol', {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            fill.style.width = Math.round(m.progress * 100) + '%';
-            label.textContent = baseMsg + 'Odczytuję tekst… ' + Math.round(m.progress * 100) + '%';
-          } else {
-            label.textContent = baseMsg + 'Przygotowuję…';
-          }
-        }
+      label.textContent = files.length > 1 ? `✨ AI: zdjęcie ${n + 1}/${files.length}…` : '✨ AI rozpoznaje produkty…';
+      fill.style.width = Math.round(15 + (n / files.length) * 70) + '%';
+      const b64 = await fileToScaledBase64(files[n]);
+      const res = await fetch(SUPABASE_URL + '/functions/v1/receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ image: b64, mime: 'image/jpeg' })
       });
-      if (data && data.text) allText.push(data.text.trim());
+      const data = await res.json();
+      if (!res.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
+      if (Array.isArray(data.items)) all.push(...data.items);
     }
   } catch (e) {
     progress.classList.remove('show');
-    showToast('⚠️ Błąd odczytu zdjęcia');
+    showToast('⚠️ Błąd rozpoznawania AI — spróbuj ponownie');
     return;
   }
+  fill.style.width = '100%';
+  setTimeout(() => progress.classList.remove('show'), 400);
 
-  progress.classList.remove('show');
-
-  const ta = document.getElementById('receiptText');
-  const recognized = allText.join('\n').trim();
-  if (!recognized) {
-    showToast('🤔 Nie odczytano tekstu — spróbuj wyraźniejszego zdjęcia');
+  if (!all.length) {
+    showToast('🤔 Nie rozpoznano produktów — spróbuj wyraźniejszego zdjęcia');
     return;
   }
-  ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + recognized;
-  showToast('📝 Odczytano tekst — sprawdzam produkty…');
-  parseReceipt();
-  ta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  parsedItems = all.map(it => ({
+    name: String(it.name || '').trim() || 'Produkt',
+    qty: parseInt(it.qty) || 1,
+    unit: String(it.unit || 'szt').trim() || 'szt',
+    category: it.category || guessCategory(String(it.name || '').toLowerCase()),
+    include: true
+  }));
+  renderParsed();
+  showToast(`✨ AI rozpoznało ${parsedItems.length} produktów`);
+  document.getElementById('parsedWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Zmniejsz i zakoduj zdjęcie do base64 (mniejszy upload, szybciej)
+function fileToScaledBase64(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      try { resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]); }
+      catch (e) { reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Nie można wczytać zdjęcia')); };
+    img.src = url;
+  });
 }
 
 // ─── PARAGON: PARSER JSON (e-paragon, np. Biedronka/JPK_KASA) ─────────────────
