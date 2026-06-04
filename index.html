@@ -54,7 +54,10 @@
       min-height: -webkit-fill-available;
       padding-bottom: calc(72px + var(--safe-bottom));
       -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
     }
+    header { flex-shrink: 0; }
 
     /* Nagłówki i nazwy — Poppins */
     .brand-name, .product-name, .modal h2, .recipe-title,
@@ -585,7 +588,7 @@
 
     /* VIEWS */
     .view { display: none; }
-    .view.active { display: block; animation: fadeUp 0.3s ease both; }
+    .view.active { display: block; flex: 1 0 auto; animation: fadeUp 0.3s ease both; }
 
     /* BOTTOM NAV */
     .bottom-nav {
