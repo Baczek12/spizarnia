@@ -904,6 +904,42 @@
       letter-spacing: 0.5px; color: var(--gray-dark);
       margin: 18px 0 8px; padding-left: 2px;
     }
+
+    /* PRZEPISY: przełącznik Moje/Sugestie */
+    .seg {
+      display: flex; gap: 6px;
+      padding: 12px 16px 0;
+      background: white;
+    }
+    .seg-btn {
+      flex: 1;
+      padding: 9px;
+      border: 1.5px solid var(--border);
+      background: white;
+      border-radius: 12px;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 600;
+      font-size: 13.5px;
+      color: var(--gray-dark);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .seg-btn.active { background: var(--green); border-color: var(--green); color: white; }
+
+    .recipe-act {
+      border: none;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      align-self: flex-start;
+    }
+    .recipe-act.save { background: var(--green); color: white; }
+    .recipe-act.del { background: var(--red-light); color: var(--red); font-size: 15px; padding: 6px 9px; }
+    .recipe-act:active { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -930,11 +966,11 @@
 
 <!-- ─── VIEW: PRZEPISY ──────────────────────────────────────────── -->
 <section class="view" id="view-recipes">
-  <div class="tabs" id="mealTabs"></div>
-  <div class="panel" style="padding-bottom:0;">
-    <button class="full-btn" id="aiBtn" onclick="generateAIRecipes()">✨ Wygeneruj przepisy AI</button>
-    <div id="aiRecipes"></div>
+  <div class="seg">
+    <button class="seg-btn active" id="seg-mine" onclick="setRecipeMode('mine')">📖 Moje</button>
+    <button class="seg-btn" id="seg-sugg" onclick="setRecipeMode('sugg')">💡 Sugestie</button>
   </div>
+  <div class="tabs" id="mealTabs"></div>
   <div class="panel" id="recipesPanel"></div>
 </section>
 
@@ -1045,6 +1081,37 @@
   </div>
 </div>
 
+<!-- ─── MODAL: WŁASNY PRZEPIS ───────────────────────────────────── -->
+<div class="modal-overlay" id="recipeModalOverlay" onclick="closeRecipeFormIfOutside(event)">
+  <div class="modal">
+    <h2>➕ Własny przepis</h2>
+    <label>Nazwa *</label>
+    <input type="text" id="recName" placeholder="np. Naleśniki">
+    <div class="modal-row">
+      <div>
+        <label>Emoji</label>
+        <input type="text" id="recEmoji" placeholder="🥞" maxlength="4">
+      </div>
+      <div>
+        <label>Posiłek</label>
+        <select id="recMeal">
+          <option value="Śniadanie">Śniadanie</option>
+          <option value="Obiad" selected>Obiad</option>
+          <option value="Kolacja">Kolacja</option>
+        </select>
+      </div>
+    </div>
+    <label>Składniki (każdy w nowej linii)</label>
+    <textarea id="recIngredients" rows="5" placeholder="Mąka&#10;Mleko&#10;Jajka"></textarea>
+    <label>Kroki (każdy w nowej linii)</label>
+    <textarea id="recSteps" rows="5" placeholder="Wymieszaj składniki…&#10;Smaż na patelni…"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeRecipeForm()">Anuluj</button>
+      <button class="btn btn-primary" onclick="saveRecipeForm()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Klient Supabase (synchronizacja w chmurze) -->
@@ -1090,6 +1157,28 @@ let shopping = JSON.parse(localStorage.getItem('spizarnia_shop_v1') || '[]');
 let shopNextId = Math.max(0, ...shopping.map(s => s.id || 0)) + 1;
 let lastShopJSON = '';
 const SHOP_ID = 'shopping';
+
+// Moje przepisy (zapisane własne + zapisane z AI)
+const DEFAULT_MY_RECIPES = [{
+  id: 1, source: 'me', emoji: '🍗', meal: 'Obiad',
+  name: 'Kurczak słodko-kwaśny z ryżem i ogórkami po azjatycku',
+  ingredients: ['Kurczak (ok. 500 g)', 'Ryż', 'Ketchup', 'Sos sojowy', 'Ogórki świeże', 'Miód', 'Mąka ziemniaczana / skrobia', 'Sriracha', 'Ocet ryżowy', 'Sezam', 'Płatki chili', 'Imbir', 'Limonka', 'Marchewka', 'Oliwa / olej', 'Sól, pieprz', 'Papryka słodka, czosnek granulowany'],
+  steps: [
+    'Marynata: pokrój 500 g kurczaka i wymieszaj z sosem sojowym, solą, pieprzem, słodką papryką, czosnkiem granulowanym i mąką ziemniaczaną.',
+    'Sos do kurczaka: połącz 3 łyżki ketchupu, 3 łyżki sosu sojowego, 1 łyżkę srirachy, 1 łyżkę oliwy, 1,5 łyżki miodu i płaską łyżeczkę czosnku granulowanego.',
+    'Usmaż zamarynowanego kurczaka na patelni, a następnie zdejmij go z ognia.',
+    'Na tę samą patelnię wlej sos, zagotuj, wrzuć kurczaka z powrotem i obtocz w sosie.',
+    'Ogórki po azjatycku: pokrój 230 g ogórków i wymieszaj z przeciśniętym ząbkiem czosnku, 3 łyżkami sosu sojowego, 2 łyżkami octu ryżowego, 2,5–3 łyżeczkami miodu, 3/4 łyżeczki płatków chili, 1,5 łyżeczki sezamu, startym imbirem i sokiem z limonki.',
+    'Podawaj z ugotowanym ryżem oraz dodatkami (marchewka, ogórki po azjatycku).'
+  ]
+}];
+let myRecipes = JSON.parse(localStorage.getItem('spizarnia_rec_v1') || 'null') || DEFAULT_MY_RECIPES;
+let myRecNextId = Math.max(0, ...myRecipes.map(r => r.id || 0)) + 1;
+let lastRecJSON = '';
+const RECIPES_ID = 'myrecipes';
+let recipeMode = 'mine';   // 'mine' | 'sugg'
+let aiResults = [];
+let aiError = '';
 
 // ─── KONFIGURACJA SUPABASE ───────────────────────────────────────────────────
 // 1. Wejdź na https://supabase.com → New project (darmowy).
@@ -1163,6 +1252,7 @@ async function initCloud() {
       await pushToCloud(true);
     }
     await loadShopping();
+    await loadMyRecipes();
     subscribeCloud();
   } catch (e) {
     cloudReady = false;
@@ -1212,6 +1302,50 @@ function saveShop() {
   localStorage.setItem('spizarnia_shop_v1', JSON.stringify(shopping));
   localStorage.setItem('spizarnia_shop_updated', new Date().toISOString());
   scheduleShopPush();
+}
+
+async function loadMyRecipes() {
+  try {
+    const { data: rd } = await supa.from('pantry').select('data, updated_at').eq('id', RECIPES_ID).maybeSingle();
+    const localTs = localStorage.getItem('spizarnia_rec_updated') || '';
+    const cloudTs = (rd && rd.updated_at) || '';
+    if (rd && Array.isArray(rd.data) && cloudTs >= localTs) {
+      myRecipes = rd.data;
+      myRecNextId = Math.max(0, ...myRecipes.map(r => r.id || 0)) + 1;
+      lastRecJSON = JSON.stringify(myRecipes);
+      localStorage.setItem('spizarnia_rec_v1', lastRecJSON);
+      localStorage.setItem('spizarnia_rec_updated', cloudTs || new Date().toISOString());
+      if (activeView === 'recipes') renderRecipes();
+    } else {
+      await pushMyRecipes(true);
+    }
+  } catch (e) {}
+}
+
+let recPushTimer = null;
+function scheduleRecPush() {
+  if (!cloudReady) return;
+  clearTimeout(recPushTimer);
+  recPushTimer = setTimeout(() => pushMyRecipes(), 600);
+}
+
+async function pushMyRecipes(force) {
+  if (!supa || !cloudReady) return;
+  const json = JSON.stringify(myRecipes);
+  if (!force && json === lastRecJSON) return;
+  try {
+    const { error } = await supa.from('pantry').upsert({
+      id: RECIPES_ID, data: myRecipes, updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    lastRecJSON = json;
+  } catch (e) {}
+}
+
+function saveRec() {
+  localStorage.setItem('spizarnia_rec_v1', JSON.stringify(myRecipes));
+  localStorage.setItem('spizarnia_rec_updated', new Date().toISOString());
+  scheduleRecPush();
 }
 
 let pushTimer = null;
@@ -1275,6 +1409,23 @@ function subscribeCloud() {
         localStorage.setItem('spizarnia_shop_v1', json);
         localStorage.setItem('spizarnia_shop_updated', (payload.new && payload.new.updated_at) || new Date().toISOString());
         if (activeView === 'shopping') renderShopping();
+      })
+    .subscribe();
+
+  supa.channel('rec-sync')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'pantry', filter: 'id=eq.' + RECIPES_ID },
+      payload => {
+        const incoming = payload.new && payload.new.data;
+        if (!Array.isArray(incoming)) return;
+        const json = JSON.stringify(incoming);
+        if (json === JSON.stringify(myRecipes)) return;
+        myRecipes = incoming;
+        myRecNextId = Math.max(0, ...myRecipes.map(r => r.id || 0)) + 1;
+        lastRecJSON = json;
+        localStorage.setItem('spizarnia_rec_v1', json);
+        localStorage.setItem('spizarnia_rec_updated', (payload.new && payload.new.updated_at) || new Date().toISOString());
+        if (activeView === 'recipes') renderRecipes();
       })
     .subscribe();
 }
@@ -2111,36 +2262,6 @@ const RECIPES = [
       'Dodaj kukurydzę / groszek.',
       'Możesz dorzucić ugotowane jajko.'
     ]
-  },
-  {
-    name: 'Kurczak słodko-kwaśny z ryżem i ogórkami po azjatycku', emoji: '🍗', meal: 'Obiad',
-    ingredients: [
-      { kw: ['kurczak','kurczaka','pierś','filet drobiow'], label: 'Kurczak (ok. 500 g)' },
-      { kw: ['ryż','ryz'], label: 'Ryż' },
-      { kw: ['ketchup'], label: 'Ketchup' },
-      { kw: ['sojowy','sos sojowy','soja'], label: 'Sos sojowy' },
-      { kw: ['ogórek','ogorek','ogórki','ogorki'], label: 'Ogórki świeże' },
-      { kw: ['miód','miod'], label: 'Miód' },
-      { kw: ['skrobia','mąka ziemniacz','maka ziemniacz','ziemniacz'], label: 'Mąka ziemniaczana / skrobia' },
-      { kw: ['sriracha'], label: 'Sriracha' },
-      { kw: ['ocet ryżowy','ocet ryzowy','ocet'], label: 'Ocet ryżowy' },
-      { kw: ['sezam'], label: 'Sezam' },
-      { kw: ['płatki chili','platki chili','chili'], label: 'Płatki chili' },
-      { kw: ['imbir'], label: 'Imbir' },
-      { kw: ['limonk'], label: 'Limonka' },
-      { kw: ['marchew'], label: 'Marchewka' },
-      { kw: ['oliwa','olej'], label: 'Oliwa / olej', basic: true },
-      { kw: ['sól','sol','pieprz'], label: 'Sól, pieprz', basic: true },
-      { kw: ['papryka','czosnek granul','przypraw'], label: 'Papryka słodka, czosnek granulowany', basic: true }
-    ],
-    steps: [
-      'Marynata: pokrój 500 g kurczaka i wymieszaj z sosem sojowym, solą, pieprzem, słodką papryką, czosnkiem granulowanym i mąką ziemniaczaną.',
-      'Sos do kurczaka: połącz 3 łyżki ketchupu, 3 łyżki sosu sojowego, 1 łyżkę srirachy, 1 łyżkę oliwy, 1,5 łyżki miodu i płaską łyżeczkę czosnku granulowanego.',
-      'Usmaż zamarynowanego kurczaka na patelni, a następnie zdejmij go z ognia.',
-      'Na tę samą patelnię wlej sos, zagotuj, wrzuć kurczaka z powrotem i obtocz w sosie.',
-      'Ogórki po azjatycku: pokrój 230 g ogórków i wymieszaj z przeciśniętym ząbkiem czosnku, 3 łyżkami sosu sojowego, 2 łyżkami octu ryżowego, 2,5–3 łyżeczkami miodu, 3/4 łyżeczki płatków chili, 1,5 łyżeczki sezamu, startym imbirem i sokiem z limonki.',
-      'Podawaj z ugotowanym ryżem oraz dodatkami (marchewka, ogórki po azjatycku).'
-    ]
   }
 ];
 
@@ -2174,6 +2295,15 @@ function setMeal(m) { activeMeal = m; renderRecipes(); }
 
 function renderRecipes() {
   renderMealTabs();
+  document.getElementById('seg-mine').classList.toggle('active', recipeMode === 'mine');
+  document.getElementById('seg-sugg').classList.toggle('active', recipeMode === 'sugg');
+  if (recipeMode === 'mine') renderMyRecipes();
+  else renderSuggestions();
+}
+
+function setRecipeMode(m) { recipeMode = m; renderRecipes(); }
+
+function renderSuggestions() {
   const panel = document.getElementById('recipesPanel');
 
   let list = RECIPES
@@ -2219,16 +2349,67 @@ function renderRecipes() {
     }).join('');
 }
 
-// ─── PRZEPISY AI (Gemini przez funkcję Supabase) ─────────────────────────────
+// ─── MOJE PRZEPISY + AI ──────────────────────────────────────────────────────
+function recipeCardHtml(r, opts = {}) {
+  const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+  const missing = Array.isArray(r.missing) ? r.missing : [];
+  const steps = Array.isArray(r.steps) ? r.steps : [];
+  const tag = (opts.save !== undefined || r.source === 'ai') ? '✨ AI' : 'własny';
+  let actions = '';
+  if (opts.save !== undefined) actions = `<button class="recipe-act save" onclick="saveAIRecipe(${opts.save})">💾 Zapisz</button>`;
+  else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="deleteMyRecipe(${opts.del})">🗑</button>`;
+  const allForShop = ings.concat(missing);
+  return `
+    <div class="recipe-card">
+      <div class="recipe-head">
+        <span class="recipe-emoji">${esc(r.emoji || '🍽')}</span>
+        <div style="flex:1;min-width:0;">
+          <div class="recipe-title">${esc(r.name || 'Przepis')}</div>
+          <span class="recipe-meal">${esc(r.meal || '')} · ${tag}</span>
+        </div>
+        ${actions}
+      </div>
+      <ul class="ingredients">
+        ${ings.map(i => `<li class="ing-have"><span class="ing-mark">•</span>${esc(i)}</li>`).join('')}
+      </ul>
+      ${missing.length ? `<div class="miss-note">Brakuje: ${missing.map(esc).join(', ')}<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missing))}')">🛒 Do listy</button></div>` : ''}
+      <details class="recipe-steps">
+        <summary>👨‍🍳 Sposób przygotowania</summary>
+        <ol>${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+        ${allForShop.length ? `<button class="full-btn secondary" style="margin-top:10px;" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(allForShop))}')">🛒 Wszystkie składniki do listy</button>` : ''}
+      </details>
+    </div>`;
+}
+
+function renderMyRecipes() {
+  const panel = document.getElementById('recipesPanel');
+  let html = '';
+  html += `<button class="full-btn" onclick="generateAIRecipes()" ${aiLoading ? 'disabled' : ''}>${aiLoading ? '✨ Generuję…' : '✨ Wygeneruj przepisy AI'}</button>`;
+  html += `<button class="full-btn secondary" onclick="openRecipeForm()">➕ Dodaj własny przepis</button>`;
+
+  if (aiLoading) {
+    html += `<div class="empty"><div class="emoji">👨‍🍳</div><p>AI dobiera przepisy z Twojej spiżarni…</p></div>`;
+  } else if (aiError) {
+    html += `<div class="miss-note" style="margin-top:12px;">Nie udało się wygenerować (${esc(aiError)}). Darmowy limit Gemini bywa chwilowy — spróbuj za kilkanaście sekund.</div>`;
+  } else if (aiResults.length) {
+    html += `<p class="panel-intro" style="margin-top:14px;">✨ Wygenerowane — kliknij <b>💾 Zapisz</b>, by dodać do „Moich":</p>`;
+    html += aiResults.map((r, i) => recipeCardHtml(r, { save: i })).join('');
+  }
+
+  const mine = myRecipes.filter(r => activeMeal === 'Wszystkie' || r.meal === activeMeal);
+  html += `<p class="panel-intro" style="margin-top:18px;">📖 Twoje zapisane przepisy${myRecipes.length ? ' (' + myRecipes.length + ')' : ''}:</p>`;
+  html += mine.length
+    ? mine.map(r => recipeCardHtml(r, { del: r.id })).join('')
+    : `<div class="empty"><div class="emoji">📖</div><p>Brak zapisanych${activeMeal !== 'Wszystkie' ? ' dla: ' + activeMeal : ''}.<br>Zapisz przepis z AI albo dodaj własny.</p></div>`;
+  panel.innerHTML = html;
+}
+
 let aiLoading = false;
 async function generateAIRecipes() {
   if (aiLoading) return;
   if (!CLOUD_ENABLED) { showToast('AI wymaga połączenia z chmurą'); return; }
-  aiLoading = true;
-  const btn = document.getElementById('aiBtn');
-  const wrap = document.getElementById('aiRecipes');
-  btn.disabled = true; btn.textContent = '✨ Generuję…';
-  wrap.innerHTML = `<div class="empty"><div class="emoji">👨‍🍳</div><p>AI dobiera przepisy z Twojej spiżarni…</p></div>`;
+  aiLoading = true; aiError = '';
+  if (activeView === 'recipes' && recipeMode === 'mine') renderRecipes();
   try {
     const owned = products.filter(p => (Number(p.qty) || 0) > 0)
       .map(p => ({ name: p.name, brand: p.brand, qty: p.qty, unit: p.unit }));
@@ -2239,40 +2420,62 @@ async function generateAIRecipes() {
     });
     const data = await res.json();
     if (!res.ok || !Array.isArray(data.recipes)) throw new Error((data && data.error) || ('HTTP ' + res.status));
-    renderAIRecipes(data.recipes);
+    aiResults = data.recipes;
   } catch (e) {
-    wrap.innerHTML = `<div class="miss-note" style="margin-top:10px;">Nie udało się wygenerować (${esc(String(e.message || e))}). Darmowy limit Gemini bywa chwilowy — spróbuj ponownie za kilkanaście sekund.</div>`;
+    aiError = String(e.message || e);
   } finally {
-    aiLoading = false; btn.disabled = false; btn.textContent = '✨ Wygeneruj przepisy AI';
+    aiLoading = false;
+    recipeMode = 'mine';
+    if (activeView === 'recipes') renderRecipes();
   }
 }
 
-function renderAIRecipes(recipes) {
-  const wrap = document.getElementById('aiRecipes');
-  if (!recipes.length) { wrap.innerHTML = `<p class="panel-intro" style="margin-top:12px;">Brak pomysłów — dodaj więcej składników do spiżarni.</p>`; return; }
-  wrap.innerHTML = `<p class="panel-intro" style="margin-top:12px;">✨ Wygenerowane przez AI z tego, co masz:</p>` + recipes.map(r => {
-    const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
-    const missing = Array.isArray(r.missing) ? r.missing : [];
-    const steps = Array.isArray(r.steps) ? r.steps : [];
-    return `
-      <div class="recipe-card">
-        <div class="recipe-head">
-          <span class="recipe-emoji">${esc(r.emoji || '🍽')}</span>
-          <div style="flex:1;min-width:0;">
-            <div class="recipe-title">${esc(r.name || 'Przepis')}</div>
-            <span class="recipe-meal">${esc(r.meal || '')} · ✨ AI</span>
-          </div>
-        </div>
-        <ul class="ingredients">
-          ${ings.map(i => `<li class="ing-have"><span class="ing-mark">•</span>${esc(i)}</li>`).join('')}
-        </ul>
-        ${missing.length ? `<div class="miss-note">Brakuje: ${missing.map(esc).join(', ')}<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missing))}')">🛒 Do listy</button></div>` : ''}
-        <details class="recipe-steps">
-          <summary>👨‍🍳 Sposób przygotowania</summary>
-          <ol>${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
-        </details>
-      </div>`;
-  }).join('');
+function saveAIRecipe(i) {
+  const r = aiResults[i];
+  if (!r) return;
+  myRecipes.unshift({
+    id: myRecNextId++, source: 'ai',
+    name: r.name || 'Przepis', emoji: r.emoji || '🍽', meal: r.meal || 'Obiad',
+    ingredients: (Array.isArray(r.ingredients) ? r.ingredients : []).concat(Array.isArray(r.missing) ? r.missing : []),
+    steps: Array.isArray(r.steps) ? r.steps : []
+  });
+  aiResults.splice(i, 1);
+  saveRec(); renderRecipes();
+  showToast('💾 Zapisano do „Moich przepisów"');
+}
+
+function deleteMyRecipe(id) {
+  const r = myRecipes.find(x => x.id === id);
+  if (r && !confirm(`Usunąć przepis „${r.name}"?`)) return;
+  myRecipes = myRecipes.filter(x => x.id !== id);
+  saveRec(); renderRecipes();
+  showToast('🗑 Usunięto przepis');
+}
+
+// Formularz własnego przepisu
+function openRecipeForm() {
+  document.getElementById('recName').value = '';
+  document.getElementById('recEmoji').value = '';
+  document.getElementById('recMeal').value = 'Obiad';
+  document.getElementById('recIngredients').value = '';
+  document.getElementById('recSteps').value = '';
+  document.getElementById('recipeModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('recName').focus(), 300);
+}
+function closeRecipeForm() { document.getElementById('recipeModalOverlay').classList.remove('open'); }
+function closeRecipeFormIfOutside(e) { if (e.target === document.getElementById('recipeModalOverlay')) closeRecipeForm(); }
+function saveRecipeForm() {
+  const name = document.getElementById('recName').value.trim();
+  if (!name) { document.getElementById('recName').focus(); return; }
+  const emoji = document.getElementById('recEmoji').value.trim() || '🍽';
+  const meal = document.getElementById('recMeal').value;
+  const ingredients = document.getElementById('recIngredients').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const steps = document.getElementById('recSteps').value.split('\n').map(s => s.trim()).filter(Boolean);
+  myRecipes.unshift({ id: myRecNextId++, source: 'me', name, emoji, meal, ingredients, steps });
+  saveRec(); closeRecipeForm();
+  recipeMode = 'mine';
+  if (activeView === 'recipes') renderRecipes();
+  showToast('✅ Dodano przepis');
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
