@@ -200,14 +200,14 @@
     .category-label {
       display: flex;
       align-items: center;
-      gap: 7px;
-      font-size: 12px;
+      gap: 8px;
+      font-size: 13px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: #6b7280;
+      letter-spacing: 0.5px;
+      color: #5b6b58;
       margin-top: 14px;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
       padding-left: 2px;
     }
     .category-label .cat-dot {
@@ -216,31 +216,53 @@
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, var(--green)) 18%, transparent);
     }
     .category-label .cat-n {
-      font-size: 11px;
-      font-weight: 700;
-      color: #9ca3af;
+      margin-left: auto;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent, var(--green));
       letter-spacing: 0;
+      background: color-mix(in srgb, var(--accent, var(--green)) 12%, white);
+      padding: 2px 10px;
+      border-radius: 11px;
     }
     .category-label:first-child { margin-top: 0; }
-    .category-label.clickable { cursor: pointer; user-select: none; }
-    .category-label.clickable:active { opacity: 0.65; }
+
+    /* Klikalny nagłówek kategorii — duży, wyraźny pasek */
+    .category-label.clickable {
+      cursor: pointer;
+      user-select: none;
+      background: white;
+      border: 1px solid #ece8da;
+      border-left: 5px solid var(--accent, var(--green));
+      border-radius: 13px;
+      padding: 15px 14px;
+      margin-top: 12px;
+      margin-bottom: 8px;
+      box-shadow: var(--shadow-sm);
+      font-size: 14.5px;
+      transition: transform 0.1s, box-shadow 0.15s;
+    }
+    .category-label.clickable:active { transform: scale(0.99); box-shadow: var(--shadow-md); }
     .cat-chev {
-      font-size: 11px;
-      width: 12px;
+      font-size: 15px;
+      width: 16px;
       text-align: center;
       color: var(--accent, var(--green));
       flex-shrink: 0;
+      font-weight: 700;
     }
     .collapse-all {
       align-self: flex-start;
-      border: none;
-      background: none;
+      border: 1.5px solid var(--border);
+      background: white;
       color: var(--green-dark);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
-      padding: 0 0 2px;
-      font-family: 'Quicksand', sans-serif;
+      padding: 8px 14px;
+      border-radius: 11px;
+      margin-bottom: 4px;
+      font-family: 'Poppins', sans-serif;
     }
     .collapse-all:active { opacity: 0.7; }
 
