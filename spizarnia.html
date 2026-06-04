@@ -843,8 +843,20 @@
     }
     .recipe-head { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; }
     .recipe-emoji { font-size: 30px; line-height: 1; }
-    .rec-chev { font-size: 14px; color: var(--gray-dark); flex-shrink: 0; align-self: center; margin-left: 2px; }
-    .recipe-card.rc-collapsed { padding-bottom: 16px; }
+    .rec-chev {
+      font-size: 18px;
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--green-light);
+      color: var(--green-dark);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      align-self: center;
+      transition: background 0.12s;
+    }
+    .recipe-head:active .rec-chev { background: #cfe0c8; }
+    .recipe-card.rc-collapsed { cursor: pointer; }
+    .recipe-card.rc-collapsed .recipe-head { align-items: center; }
     .recipe-title { font-size: 17px; font-weight: 700; flex: 1; }
     .recipe-badge {
       font-size: 11px;
@@ -2871,22 +2883,22 @@ function renderRecipes() {
 
 function setRecipeMode(m) { recipeMode = m; renderRecipes(); }
 
-// Zwijanie przepisów
-let collapsedRecipes = new Set();
+// Zwijanie przepisów — domyślnie ZAMKNIĘTE (otwarte = klucz w zbiorze)
+let expandedRecipes = new Set();
 function toggleRecipe(key) {
-  if (collapsedRecipes.has(key)) collapsedRecipes.delete(key); else collapsedRecipes.add(key);
+  if (expandedRecipes.has(key)) expandedRecipes.delete(key); else expandedRecipes.add(key);
   renderRecipes();
 }
-function recipeCollapseAll(enc, state) {
+function recipeSetExpandAll(enc, expand) {
   let keys = [];
   try { keys = JSON.parse(decodeURIComponent(enc)); } catch (e) {}
-  if (state) keys.forEach(k => collapsedRecipes.add(k)); else keys.forEach(k => collapsedRecipes.delete(k));
+  if (expand) keys.forEach(k => expandedRecipes.add(k)); else keys.forEach(k => expandedRecipes.delete(k));
   renderRecipes();
 }
 function collapseAllBtn(keys) {
   if (keys.length < 2) return '';
-  const allCol = keys.every(k => collapsedRecipes.has(k));
-  return `<button class="collapse-all" onclick="recipeCollapseAll('${encodeURIComponent(JSON.stringify(keys))}', ${allCol ? 'false' : 'true'})">${allCol ? '▾ Rozwiń wszystkie' : '▸ Zwiń wszystkie'}</button>`;
+  const anyOpen = keys.some(k => expandedRecipes.has(k));
+  return `<button class="collapse-all" onclick="recipeSetExpandAll('${encodeURIComponent(JSON.stringify(keys))}', ${anyOpen ? 'false' : 'true'})">${anyOpen ? '▸ Zwiń wszystkie' : '▾ Rozwiń wszystkie'}</button>`;
 }
 
 function renderSuggestions() {
@@ -2926,7 +2938,7 @@ function renderSuggestions() {
     list.map(({ r, e }) => {
       const full = e.missing.length === 0;
       const key = 'sugg-' + r.name;
-      const collapsed = collapsedRecipes.has(key);
+      const collapsed = !expandedRecipes.has(key);
       const body = collapsed ? '' : `
           <ul class="ingredients">
             ${r.ingredients.map(ing => {
@@ -3059,7 +3071,7 @@ function recipeCardHtml(r, opts = {}) {
   const steps = Array.isArray(r.steps) ? r.steps : [];
   const tag = (opts.save !== undefined || r.source === 'ai') ? '✨ AI' : 'własny';
   const key = opts.save !== undefined ? 'ai-' + opts.save : (opts.del !== undefined ? 'mine-' + opts.del : 'r-' + (r.name || ''));
-  const collapsed = collapsedRecipes.has(key);
+  const collapsed = !expandedRecipes.has(key);
   let actions = '';
   if (opts.save !== undefined) actions = `<button class="recipe-act save" onclick="event.stopPropagation(); saveAIRecipe(${opts.save})">💾 Zapisz</button>`;
   else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="event.stopPropagation(); deleteMyRecipe(${opts.del})">🗑</button>`;
