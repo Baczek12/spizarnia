@@ -940,6 +940,23 @@
     .recipe-act.save { background: var(--green); color: white; }
     .recipe-act.del { background: var(--red-light); color: var(--red); font-size: 15px; padding: 6px 9px; }
     .recipe-act:active { opacity: 0.8; }
+
+    /* CHIPSY „na co masz ochotę" */
+    .mood-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+    .mood {
+      border: 1.5px solid var(--border);
+      background: white;
+      color: #4b5563;
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Quicksand', sans-serif;
+      cursor: pointer;
+      transition: transform 0.12s, background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .mood:active { transform: scale(0.95); }
+    .mood.active { background: var(--gold); border-color: var(--gold); color: white; }
   </style>
 </head>
 <body>
@@ -1179,6 +1196,19 @@ const RECIPES_ID = 'myrecipes';
 let recipeMode = 'mine';   // 'mine' | 'sugg'
 let aiResults = [];
 let aiError = '';
+// Luźny „na co masz ochotę"
+const AI_MOODS = [
+  { e: '🍜', t: 'azjatyckie' }, { e: '🍝', t: 'włoskie' }, { e: '🌮', t: 'meksykańskie' },
+  { e: '🍚', t: 'na ryżu' }, { e: '🍝', t: 'na makaronie' }, { e: '🥪', t: 'na szybko' },
+  { e: '🥗', t: 'lekkie' }, { e: '🌶️', t: 'ostre' }, { e: '🍲', t: 'rozgrzewające' },
+  { e: '🥟', t: 'komfortowe' }, { e: '🍮', t: 'na słodko' }, { e: '🌱', t: 'wege' }
+];
+let aiMoods = [];
+function toggleAiMood(t) {
+  const i = aiMoods.indexOf(t);
+  if (i >= 0) aiMoods.splice(i, 1); else aiMoods.push(t);
+  renderRecipes();
+}
 
 // ─── KONFIGURACJA SUPABASE ───────────────────────────────────────────────────
 // 1. Wejdź na https://supabase.com → New project (darmowy).
@@ -2307,7 +2337,11 @@ function renderSuggestions() {
   const panel = document.getElementById('recipesPanel');
 
   // Sekcja AI (na górze Sugestii)
-  let html = `<button class="full-btn" onclick="generateAIRecipes()" ${aiLoading ? 'disabled' : ''}>${aiLoading ? '✨ Generuję…' : '✨ Wygeneruj przepisy AI'}</button>`;
+  let html = `<p class="panel-intro" style="margin:0 0 8px;">Na co masz dziś ochotę? <span style="color:var(--gray-dark);">(opcjonalnie, klikaj śmiało)</span></p>`;
+  html += `<div class="mood-row">` + AI_MOODS.map(m =>
+    `<button class="mood ${aiMoods.includes(m.t) ? 'active' : ''}" onclick="toggleAiMood('${m.t}')">${m.e} ${m.t}</button>`
+  ).join('') + `</div>`;
+  html += `<button class="full-btn" onclick="generateAIRecipes()" ${aiLoading ? 'disabled' : ''}>${aiLoading ? '✨ Generuję…' : '✨ Wygeneruj przepisy AI'}</button>`;
   if (aiLoading) {
     html += `<div class="empty"><div class="emoji">👨‍🍳</div><p>AI dobiera przepisy z Twojej spiżarni…</p></div>`;
   } else if (aiError) {
@@ -2445,7 +2479,7 @@ async function generateAIRecipes() {
     const res = await fetch(SUPABASE_URL + '/functions/v1/recipes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ products: owned, meal: activeMeal })
+      body: JSON.stringify({ products: owned, meal: activeMeal, prefs: aiMoods })
     });
     const data = await res.json();
     if (!res.ok || !Array.isArray(data.recipes)) throw new Error((data && data.error) || ('HTTP ' + res.status));
