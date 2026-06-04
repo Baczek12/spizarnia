@@ -931,6 +931,10 @@
 <!-- ─── VIEW: PRZEPISY ──────────────────────────────────────────── -->
 <section class="view" id="view-recipes">
   <div class="tabs" id="mealTabs"></div>
+  <div class="panel" style="padding-bottom:0;">
+    <button class="full-btn" id="aiBtn" onclick="generateAIRecipes()">✨ Wygeneruj przepisy AI</button>
+    <div id="aiRecipes"></div>
+  </div>
   <div class="panel" id="recipesPanel"></div>
 </section>
 
@@ -2213,6 +2217,62 @@ function renderRecipes() {
           </details>
         </div>`;
     }).join('');
+}
+
+// ─── PRZEPISY AI (Gemini przez funkcję Supabase) ─────────────────────────────
+let aiLoading = false;
+async function generateAIRecipes() {
+  if (aiLoading) return;
+  if (!CLOUD_ENABLED) { showToast('AI wymaga połączenia z chmurą'); return; }
+  aiLoading = true;
+  const btn = document.getElementById('aiBtn');
+  const wrap = document.getElementById('aiRecipes');
+  btn.disabled = true; btn.textContent = '✨ Generuję…';
+  wrap.innerHTML = `<div class="empty"><div class="emoji">👨‍🍳</div><p>AI dobiera przepisy z Twojej spiżarni…</p></div>`;
+  try {
+    const owned = products.filter(p => (Number(p.qty) || 0) > 0)
+      .map(p => ({ name: p.name, brand: p.brand, qty: p.qty, unit: p.unit }));
+    const res = await fetch(SUPABASE_URL + '/functions/v1/recipes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ products: owned, meal: activeMeal })
+    });
+    const data = await res.json();
+    if (!res.ok || !Array.isArray(data.recipes)) throw new Error((data && data.error) || ('HTTP ' + res.status));
+    renderAIRecipes(data.recipes);
+  } catch (e) {
+    wrap.innerHTML = `<div class="miss-note" style="margin-top:10px;">Nie udało się wygenerować (${esc(String(e.message || e))}). Darmowy limit Gemini bywa chwilowy — spróbuj ponownie za kilkanaście sekund.</div>`;
+  } finally {
+    aiLoading = false; btn.disabled = false; btn.textContent = '✨ Wygeneruj przepisy AI';
+  }
+}
+
+function renderAIRecipes(recipes) {
+  const wrap = document.getElementById('aiRecipes');
+  if (!recipes.length) { wrap.innerHTML = `<p class="panel-intro" style="margin-top:12px;">Brak pomysłów — dodaj więcej składników do spiżarni.</p>`; return; }
+  wrap.innerHTML = `<p class="panel-intro" style="margin-top:12px;">✨ Wygenerowane przez AI z tego, co masz:</p>` + recipes.map(r => {
+    const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+    const missing = Array.isArray(r.missing) ? r.missing : [];
+    const steps = Array.isArray(r.steps) ? r.steps : [];
+    return `
+      <div class="recipe-card">
+        <div class="recipe-head">
+          <span class="recipe-emoji">${esc(r.emoji || '🍽')}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="recipe-title">${esc(r.name || 'Przepis')}</div>
+            <span class="recipe-meal">${esc(r.meal || '')} · ✨ AI</span>
+          </div>
+        </div>
+        <ul class="ingredients">
+          ${ings.map(i => `<li class="ing-have"><span class="ing-mark">•</span>${esc(i)}</li>`).join('')}
+        </ul>
+        ${missing.length ? `<div class="miss-note">Brakuje: ${missing.map(esc).join(', ')}<button class="miss-add" onclick="addMissingToShop('${encodeURIComponent(JSON.stringify(missing))}')">🛒 Do listy</button></div>` : ''}
+        <details class="recipe-steps">
+          <summary>👨‍🍳 Sposób przygotowania</summary>
+          <ol>${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+        </details>
+      </div>`;
+  }).join('');
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
