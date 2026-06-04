@@ -1484,6 +1484,97 @@ const CATEGORY_COLORS = {
 };
 function catColor(c) { return CATEGORY_COLORS[c] || '#2f6b3f'; }
 
+// Emoji dopasowane do konkretnego produktu (pierwsze trafienie wygrywa → kolejność ma znaczenie)
+const PRODUCT_EMOJI = [
+  [['mleko kokos', 'kokos'], '🥥'],
+  [['oliwk'], '🫒'],
+  [['oliwa', 'olej', 'smalec'], '🫗'],
+  [['ocet'], '🧴'],
+  [['sriracha', 'chili', 'chilli', 'cayenne', 'peperoncini', 'ostr'], '🌶️'],
+  [['ketchup'], '🍅'],
+  [['sojow', 'soy'], '🍶'],
+  [['worcester', 'majonez', 'musztard', 'sos '], '🥫'],
+  [['pesto'], '🌿'],
+  [['ragù', 'ragu', 'dzik'], '🍖'],
+  [['pomidor', 'polpa', 'passat', 'secchi', 'pomodor', 'koncentrat'], '🍅'],
+  [['fasol'], '🫘'],
+  [['groszek'], '🫛'],
+  [['kukurydz'], '🌽'],
+  [['brzoskwin'], '🍑'],
+  [['skrobia', 'ziemniacz', 'ziemniak'], '🥔'],
+  [['vifon', 'zupk', 'instant', 'noodle', 'ramen'], '🍜'],
+  [['lasagne', 'spaghetti', 'penne', 'makaron'], '🍝'],
+  [['panko', 'bułka tart', 'bulka tart', 'chleb', 'bułk', 'bulk', 'tost', 'bagiet', 'tortilla'], '🍞'],
+  [['mąka', 'maka '], '🌾'],
+  [['ryż', 'ryz', 'kasza'], '🍚'],
+  [['salami', 'tagliere', 'mortadel', 'pasztet', 'kabano', 'salceson'], '🍖'],
+  [['parów', 'parow', 'berlinki', 'kiełbas', 'kielbas', 'frankfurt', 'hot dog'], '🌭'],
+  [['szynk', 'boczek', 'baleron', 'wędlin', 'wedlin'], '🥓'],
+  [['mozzarella', 'cheddar', 'bursztyn', 'parmez', 'feta', 'gouda', 'ser '], '🧀'],
+  [['jogurt', 'skyr', 'kefir', 'śmietan', 'smietan', 'maślank'], '🥛'],
+  [['masło orzech', 'orzech', 'orzeszk'], '🥜'],
+  [['masło', 'maslo'], '🧈'],
+  [['jaj'], '🥚'],
+  [['miód', 'miod'], '🍯'],
+  [['curry', 'garam'], '🍛'],
+  [['imbir'], '🫚'],
+  [['czosnek'], '🧄'],
+  [['cebul'], '🧅'],
+  [['papryka'], '🫑'],
+  [['majeranek', 'oregano', 'tymianek', 'rozmaryn', 'lubczyk', 'kolendra', 'bazyli', 'natka', 'koperek'], '🌿'],
+  [['laurow', 'liście', 'liscie'], '🍃'],
+  [['kawa', 'espresso', 'cappuc', 'latte'], '☕'],
+  [['herbat', 'rooibos', 'yerba'], '🍵'],
+  [['woda'], '💧'],
+  [['sok ', 'soku', 'nektar'], '🧃'],
+  [['cola', 'pepsi', 'sprite', 'fanta', 'napój', 'napoj', 'lemoniad', 'energ', 'tonik'], '🥤'],
+  [['piwo'], '🍺'],
+  [['wino'], '🍷'],
+  [['czekolad', 'baton', 'milka', 'kinder', 'snicker', 'praline'], '🍫'],
+  [['lody', 'lód'], '🍦'],
+  [['ciastk', 'herbatnik', 'wafel', 'wafl'], '🍪'],
+  [['cukierk', 'żelk', 'zelk', 'lizak', 'toffi', 'krówk'], '🍬'],
+  [['pączk', 'paczk', 'donut'], '🍩'],
+  [['ciasto', 'tort', 'beza'], '🍰'],
+  [['chips', 'chrupki', 'chrupek'], '🥔'],
+  [['popcorn', 'prażyn'], '🍿'],
+  [['precl', 'precel', 'paluszk', 'krakers'], '🥨'],
+  [['jabłk', 'jablk'], '🍎'],
+  [['banan'], '🍌'],
+  [['cytryn'], '🍋'],
+  [['pomarańcz', 'pomarancz', 'mandarynk'], '🍊'],
+  [['truskaw', 'malin', 'jagod'], '🍓'],
+  [['winogron'], '🍇'],
+  [['gruszk'], '🍐'],
+  [['arbuz'], '🍉'],
+  [['ananas'], '🍍'],
+  [['mango'], '🥭'],
+  [['awokado'], '🥑'],
+  [['kiwi'], '🥝'],
+  [['śliw', 'sliw'], '🫐'],
+  [['ogórek', 'ogorek', 'ogórki', 'ogorki'], '🥒'],
+  [['marchew'], '🥕'],
+  [['sałat', 'salat', 'kapust', 'szpinak', 'rukol'], '🥬'],
+  [['brokuł', 'brokul'], '🥦'],
+  [['pieczark', 'grzyb', 'borowik'], '🍄'],
+  [['bakłażan', 'baklazan'], '🍆'],
+  [['dynia'], '🎃'],
+  [['kurczak', 'kurczaka', 'drobiow', 'indyk'], '🍗'],
+  [['wołow', 'wolow', 'stek', 'mielon'], '🥩'],
+  [['łoso', 'loso', 'tuńczyk', 'tunczyk', 'dorsz', 'ryba', 'makrela', 'śledź', 'sledz', 'rybn'], '🐟'],
+  [['krewetk', 'owoce morza', 'kalmar'], '🦐'],
+  [['cukier'], '🧁'],
+  [['sól', 'pieprz', 'wegeta', 'vegeta', 'kurkuma', 'cynamon', 'kmin', 'kardamon', 'gałka', 'galka', 'szafran', 'goździk', 'gozdzik', 'ziele', 'przypraw'], '🧂'],
+  [['masł', 'śmietan'], '🧈']
+];
+function productEmoji(p) {
+  const s = ((p.name || '') + ' ' + (p.brand || '')).toLowerCase();
+  for (const [kws, emoji] of PRODUCT_EMOJI) {
+    if (kws.some(k => s.includes(k))) return emoji;
+  }
+  return CATEGORY_ICONS[p.category] || '📦';
+}
+
 // ─── DATY WAŻNOŚCI ───────────────────────────────────────────────────────────
 const SOON_DAYS = 5; // ile dni przed = „kończy się wkrótce"
 function expiryInfo(expiry) {
@@ -1571,7 +1662,7 @@ function render() {
       const expBadge = e ? `<span class="exp-badge ${e.cls}">${e.label}</span>` : '';
       html += `
         <div class="product-card ${p.qty === 0 ? 'zero' : ''}" style="--accent:${catColor(p.category)}">
-          <div class="card-ico">${CATEGORY_ICONS[p.category] || '📦'}</div>
+          <div class="card-ico">${productEmoji(p)}</div>
           <div class="product-info" onclick="openModal(${p.id})">
             <div class="product-name">${esc(p.name)}</div>
             ${p.brand ? `<div class="product-meta">${esc(p.brand)}</div>` : ''}
