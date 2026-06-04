@@ -24,6 +24,7 @@ serve(async (req) => {
     const products: any[] = Array.isArray(body.products) ? body.products : [];
     const meal: string = body.meal || "";
     const prefs: string[] = Array.isArray(body.prefs) ? body.prefs.slice(0, 8) : [];
+    const useFirst: string[] = Array.isArray(body.useFirst) ? body.useFirst.slice(0, 30) : [];
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) return json({ error: "Brak GEMINI_API_KEY w sekretach" }, 500);
@@ -36,10 +37,13 @@ serve(async (req) => {
     const prefLine = prefs.length
       ? `Użytkownik ma dziś ochotę na: ${prefs.join(", ")}. Postaraj się to uwzględnić w stylu/kuchni dań, ale priorytetem zawsze są dostępne składniki.`
       : "";
+    const wasteLine = useFirst.length
+      ? `TRYB ANTY-MARNOWANIE: te produkty KOŃCZĄ SIĘ lub są PO TERMINIE — ułóż przepisy tak, by zużyć je w PIERWSZEJ kolejności: ${useFirst.join(", ")}. Każdy przepis powinien wykorzystywać przynajmniej jeden z nich.`
+      : "";
 
     const prompt =
 `Jesteś polskim szefem kuchni planującym posiłki z domowej spiżarni.
-Na podstawie PONIŻSZYCH składników zaproponuj 3 ciekawe, wykonalne przepisy. ${mealLine} ${prefLine}
+Na podstawie PONIŻSZYCH składników zaproponuj 3 ciekawe, wykonalne przepisy. ${mealLine} ${prefLine} ${wasteLine}
 Zasady:
 - Bazuj na podanych składnikach + podstawy (sól, pieprz, olej, woda, cukier).
 - Jeśli do dobrego dania brakuje 1-2 składników, dopisz je w "missing".

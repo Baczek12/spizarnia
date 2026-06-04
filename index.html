@@ -323,7 +323,20 @@
     .expiry-banner.active { border-color: var(--green); background: var(--green-light); }
     .expiry-banner .eb-bad  { color: var(--red); }
     .expiry-banner .eb-soon { color: #9a6a12; }
-    .expiry-banner .eb-action { margin-left: auto; color: var(--green-dark); font-weight: 700; }
+    .expiry-banner .eb-action { color: var(--green-dark); font-weight: 700; }
+    .expiry-banner .eb-cook {
+      margin-left: auto;
+      border: none;
+      background: var(--green);
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 5px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .expiry-banner .eb-cook:active { opacity: 0.85; }
 
     /* QUANTITY CONTROLS */
     .qty-controls {
@@ -1522,6 +1535,7 @@ async function initCloud() {
     }
     await loadShopping();
     await loadMyRecipes();
+    if (estimateExpiries()) { save(); render(); }
     subscribeCloud();
   } catch (e) {
     cloudReady = false;
@@ -1834,8 +1848,59 @@ function expiryInfo(expiry) {
   return { cls: 'exp-ok', label: `do ${dateStr}`, days };
 }
 
+// ─── SZACOWANIE TRWAŁOŚCI (żeby nie ustawiać dat ręcznie) ─────────────────────
+// Słowa-klucze → typowa liczba dni świeżości (pierwsze trafienie wygrywa)
+const SHELF_KW = [
+  [['sałat','salat','szpinak','rukol','roszpon','natk','koperek','szczypior','kolendra świe'], 4],
+  [['pieczark','grzyb','borowik'], 5],
+  [['truskaw','malin','jagod','borówk','borowk','jeżyn','jezyn','poziomk'], 3],
+  [['banan'], 5],
+  [['winogron'], 6],
+  [['pomidor','ogórek','ogorek','papryk','cukini','bakłażan','baklazan','kabacz','por '], 6],
+  [['brokuł','brokul','kalafior','kapust','fasolka szparag'], 8],
+  [['awokado'], 4],
+  [['jabłk','jablk','gruszk'], 18],
+  [['cytryn','pomarańcz','pomarancz','mandarynk','limonk','grejpfrut'], 18],
+  [['ziemniak','cebul','marchew','burak','pietruszk','seler','dynia','batat'], 30],
+  [['chleb','bułk','bulk','pieczyw','tost','bagiet','rogal','chałk','chalk','grahamk'], 4],
+  [['łoso','loso','dorsz','tuńczyk świe','makrela świe','ryba','krewetk','owoce morza','pstrąg','pstrag'], 2],
+  [['kurczak','indyk','wołow','wolow','wieprz','mięso','mieso','mielon','filet drobiow','schab','karków','karkow','boczek świe'], 3],
+  [['parów','parow','berlinki','kiełbas','kielbas','szynk','wędlin','wedlin','salami','mortadel','kabano','pasztet','baleron','tagliere'], 7],
+  [['jaj'], 21],
+  [['mleko'], 7],
+  [['śmietan','smietan','jogurt','skyr','kefir','maślank','maslank','twaróg','twarog','mozzarella','serek','ser '], 8],
+  [['masło','maslo'], 30],
+  [['tofu','hummus'], 6]
+];
+// Domyślna trwałość wg kategorii (gdy nazwa nie pasuje). Brak = trwałe (bez daty).
+const SHELF_CAT = {
+  'Warzywa': 7, 'Owoce': 10, 'Pieczywo': 4, 'Mięso': 3,
+  'Ryby i owoce morza': 2, 'Nabiał': 9, 'Wędliny': 7, 'Mrożonki': 180
+};
+function estimateShelfLife(p) {
+  const s = ((p.name || '') + ' ' + (p.brand || '')).toLowerCase();
+  for (const [kws, d] of SHELF_KW) { if (kws.some(k => s.includes(k))) return d; }
+  return Object.prototype.hasOwnProperty.call(SHELF_CAT, p.category) ? SHELF_CAT[p.category] : null;
+}
+// Uzupełnij szacowane daty tam, gdzie ich brak (psujące się produkty). Zwraca liczbę zmian.
+function estimateExpiries() {
+  let n = 0;
+  products.forEach(p => {
+    if (p.expiry) return;                 // ma datę — nie ruszaj
+    const d = estimateShelfLife(p);
+    if (d == null) return;                // trwałe — bez daty
+    const base = (p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) ? new Date(p.date + 'T00:00:00') : new Date();
+    base.setDate(base.getDate() + d);
+    p.expiry = base.toISOString().slice(0, 10);
+    p.est = true;
+    n++;
+  });
+  return n;
+}
+
 let expiringFilter = false;
 function toggleExpiring() { expiringFilter = !expiringFilter; render(); }
+function antiWasteFromBanner() { setView('recipes'); recipeMode = 'sugg'; setTimeout(generateAntiWaste, 50); }
 
 function getCategories() {
   return ['Wszystkie', ...new Set(products.map(p => p.category))];
@@ -1877,7 +1942,8 @@ function render() {
     banner = `<div class="expiry-banner ${expiringFilter ? 'active' : ''}" onclick="toggleExpiring()">`
       + (expired ? `<span class="eb-bad">⚠ ${expired} po terminie</span>` : '')
       + (soon ? `<span class="eb-soon">⏳ ${soon} kończy się</span>` : '')
-      + `<span class="eb-action">${expiringFilter ? '✕ wszystko' : 'pokaż →'}</span></div>`;
+      + `<button class="eb-cook" onclick="event.stopPropagation(); antiWasteFromBanner()">🍳 Wykorzystaj</button>`
+      + `<span class="eb-action">${expiringFilter ? '✕' : 'pokaż'}</span></div>`;
   }
 
   const filtered = getFiltered();
@@ -1901,7 +1967,7 @@ function render() {
     }
     items.forEach(p => {
       const e = expiryInfo(p.expiry);
-      const expBadge = e ? `<span class="exp-badge ${e.cls}">${e.label}</span>` : '';
+      const expBadge = e ? `<span class="exp-badge ${e.cls}">${p.est ? '≈ ' : ''}${e.label}</span>` : '';
       html += `
         <div class="product-card ${p.qty === 0 ? 'zero' : ''}" style="--accent:${catColor(p.category)}">
           <div class="card-ico">${productEmoji(p)}</div>
@@ -1985,13 +2051,14 @@ function saveProduct() {
 
   if (editingId != null) {
     const p = products.find(x => x.id === editingId);
-    if (p) Object.assign(p, { name, brand, category, qty, unit, expiry, date: todayStr() });
+    if (p) Object.assign(p, { name, brand, category, qty, unit, expiry, est: false, date: todayStr() });
     save(); render();
     if (activeView === 'recipes') renderRecipes();
     closeModal();
     showToast(`✏️ Zapisano: ${name}`);
   } else {
     products.push({ id: nextId++, name, brand, category, qty, unit, expiry, date: todayStr() });
+    estimateExpiries();
     save(); render(); closeModal();
     showToast(`✅ Dodano: ${name}`);
   }
@@ -2105,6 +2172,7 @@ function moveDoneToPantry() {
   if (!done.length) return;
   done.forEach(s => upsertProduct({ name: s.name, brand: '', category: guessCategory(s.name.toLowerCase()), qty: Number(s.qty) || 1, unit: 'szt.' }));
   shopping = shopping.filter(s => !s.done);
+  estimateExpiries();
   save(); render();
   saveShop(); renderShopping();
   showToast(`✅ Dodano ${done.length} do spiżarni`);
@@ -2473,6 +2541,7 @@ function commitParsed() {
   chosen.forEach(it => upsertProduct({
     name: it.name.trim(), brand: '', category: it.category, qty: it.qty, unit: it.unit
   }));
+  estimateExpiries();
   save();
   render();
   clearReceipt();
@@ -2686,6 +2755,7 @@ function renderSuggestions() {
     `<button class="mood ${aiMoods.includes(m.t) ? 'active' : ''}" onclick="toggleAiMood('${m.t}')">${m.e} ${m.t}</button>`
   ).join('') + `</div>`;
   html += `<button class="full-btn" onclick="generateAIRecipes()" ${aiLoading ? 'disabled' : ''}>${aiLoading ? '✨ Generuję…' : '✨ Wygeneruj przepisy AI'}</button>`;
+  html += `<button class="full-btn secondary" onclick="generateAntiWaste()" ${aiLoading ? 'disabled' : ''}>♻️ Zużyj zanim się zepsuje</button>`;
   if (aiLoading) {
     html += `<div class="empty"><div class="emoji">👨‍🍳</div><p>AI dobiera przepisy z Twojej spiżarni…</p></div>`;
   } else if (aiError) {
@@ -2889,7 +2959,16 @@ function renderMyRecipes() {
 }
 
 let aiLoading = false;
-async function generateAIRecipes() {
+async function generateAntiWaste() {
+  const exp = products.filter(p => {
+    const e = expiryInfo(p.expiry);
+    return (Number(p.qty) || 0) > 0 && e && e.days <= SOON_DAYS;
+  }).map(p => p.name);
+  if (!exp.length) { showToast('🎉 Nic się nie kończy — brak czego ratować'); return; }
+  generateAIRecipes(exp);
+}
+
+async function generateAIRecipes(useFirst) {
   if (aiLoading) return;
   if (!CLOUD_ENABLED) { showToast('AI wymaga połączenia z chmurą'); return; }
   aiLoading = true; aiError = '';
@@ -2901,7 +2980,7 @@ async function generateAIRecipes() {
     const res = await fetch(SUPABASE_URL + '/functions/v1/recipes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ products: owned, meal: activeMeal, prefs: aiMoods })
+      body: JSON.stringify({ products: owned, meal: activeMeal, prefs: aiMoods, useFirst: Array.isArray(useFirst) ? useFirst : [] })
     });
     const data = await res.json();
     if (!res.ok || !Array.isArray(data.recipes)) throw new Error((data && data.error) || ('HTTP ' + res.status));
