@@ -1,5 +1,5 @@
 // Service Worker — Spiżarnia (offline + szybsze ładowanie)
-const CACHE = 'spizarnia-v1';
+const CACHE = 'spizarnia-v2';
 const CORE = ['./', './index.html', './brand.png', './icon.png', './icon-192.png', './manifest.json'];
 
 // Hosty dynamiczne — zawsze z sieci, nigdy z cache (dane, logowanie, AI)
