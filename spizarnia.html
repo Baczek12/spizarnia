@@ -1389,7 +1389,7 @@ let nextId = Math.max(...products.map(p => p.id), 0) + 1;
 let shopping = JSON.parse(localStorage.getItem('spizarnia_shop_v1') || '[]');
 let shopNextId = Math.max(0, ...shopping.map(s => s.id || 0)) + 1;
 let lastShopJSON = '';
-const SHOP_ID = 'shopping';
+let SHOP_ID = 'shopping';
 
 // Moje przepisy (zapisane własne + zapisane z AI)
 const DEFAULT_MY_RECIPES = [{
@@ -1408,7 +1408,7 @@ const DEFAULT_MY_RECIPES = [{
 let myRecipes = JSON.parse(localStorage.getItem('spizarnia_rec_v1') || 'null') || DEFAULT_MY_RECIPES;
 let myRecNextId = Math.max(0, ...myRecipes.map(r => r.id || 0)) + 1;
 let lastRecJSON = '';
-const RECIPES_ID = 'myrecipes';
+let RECIPES_ID = 'myrecipes';
 let recipeMode = 'mine';   // 'mine' | 'sugg'
 let aiResults = [];
 let aiError = '';
@@ -1432,7 +1432,16 @@ function toggleAiMood(t) {
 // 3. Wklej je poniżej (w cudzysłowach).
 const SUPABASE_URL = 'https://kltipgnmyihxotqfryow.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsdGlwZ25teWloeG90cWZyeW93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjQxNzEsImV4cCI6MjA5NjE0MDE3MX0.9NR6n4HS7enEWQnw2iMCT1hR7fui9BBuIocPSME_MkM';
-const PANTRY_ID = 'default';                        // jedna spiżarnia; zmień, by mieć osobne
+// Gospodarstwo (household) — izolacja danych. home1 = legacy id bez prefiksu.
+let household = 'home1';
+let PANTRY_ID = 'default';
+function setHousehold(hh) {
+  household = hh || 'home1';
+  const pre = household === 'home1' ? '' : household + ':';
+  PANTRY_ID = pre + 'default';
+  SHOP_ID = pre + 'shopping';
+  RECIPES_ID = pre + 'myrecipes';
+}
 const CLOUD_ENABLED = /^https:\/\//.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 20;
 
 let supa = null;
@@ -1559,11 +1568,13 @@ function clearLocalData() {
 }
 
 // Wejście do aplikacji — DOPIERO po zalogowaniu (renderujemy i wczytujemy dane)
-function enterApp() {
+function enterApp(session) {
   if (!appEntered) {
     appEntered = true;
-    render();        // pokaż dane dopiero teraz (zalogowany)
-    initCloud();     // synchronizacja z chmurą
+    const hh = session && session.user && session.user.app_metadata && session.user.app_metadata.household_id;
+    setHousehold(hh);   // izolacja danych wg gospodarstwa
+    render();           // pokaż dane dopiero teraz (zalogowany)
+    initCloud();        // synchronizacja z chmurą
   }
   hideLogin();
   document.getElementById('logoutBtn').style.display = 'flex';
@@ -1582,7 +1593,7 @@ async function initAuth() {
   ensureSupa();
   supa.auth.onAuthStateChange((event, session) => {
     if (session && session.user) {
-      enterApp();
+      enterApp(session);
     } else {
       // brak sesji / wylogowano → wyczyść i pokaż logowanie (żadnych danych w tle)
       appEntered = false;
@@ -1667,7 +1678,7 @@ async function pushShopping(force) {
   if (!force && json === lastShopJSON) return;
   try {
     const { error } = await supa.from('pantry').upsert({
-      id: SHOP_ID, data: shopping, updated_at: new Date().toISOString()
+      id: SHOP_ID, data: shopping, household: household, updated_at: new Date().toISOString()
     });
     if (error) throw error;
     lastShopJSON = json;
@@ -1711,7 +1722,7 @@ async function pushMyRecipes(force) {
   if (!force && json === lastRecJSON) return;
   try {
     const { error } = await supa.from('pantry').upsert({
-      id: RECIPES_ID, data: myRecipes, updated_at: new Date().toISOString()
+      id: RECIPES_ID, data: myRecipes, household: household, updated_at: new Date().toISOString()
     });
     if (error) throw error;
     lastRecJSON = json;
@@ -1740,6 +1751,7 @@ async function pushToCloud(force) {
     const { error } = await supa.from('pantry').upsert({
       id: PANTRY_ID,
       data: products,
+      household: household,
       updated_at: new Date().toISOString()
     });
     if (error) throw error;
