@@ -1473,6 +1473,14 @@ function ensureSupa() {
   return supa;
 }
 
+// Token zalogowanego użytkownika (do wywołań funkcji AI — tylko zalogowani)
+async function authToken() {
+  try {
+    if (supa) { const { data } = await supa.auth.getSession(); if (data && data.session) return data.session.access_token; }
+  } catch (e) {}
+  return SUPABASE_ANON_KEY;
+}
+
 // ─── LOGOWANIE (Supabase Auth) ───────────────────────────────────────────────
 let authMode = 'login';   // 'login' | 'signup'
 let appEntered = false;
@@ -2400,9 +2408,10 @@ async function handleReceiptPhotos(fileList) {
       label.textContent = files.length > 1 ? `✨ AI: zdjęcie ${n + 1}/${files.length}…` : '✨ AI rozpoznaje produkty…';
       fill.style.width = Math.round(15 + (n / files.length) * 70) + '%';
       const b64 = await fileToScaledBase64(files[n]);
+      const token = await authToken();
       const res = await fetch(SUPABASE_URL + '/functions/v1/receipt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_ANON_KEY },
         body: JSON.stringify({ image: b64, mime: 'image/jpeg' })
       });
       const data = await res.json();
@@ -3148,9 +3157,10 @@ async function generateAIRecipes(useFirst) {
   try {
     const owned = products.filter(p => (Number(p.qty) || 0) > 0)
       .map(p => ({ name: p.name, brand: p.brand, qty: p.qty, unit: p.unit }));
+    const token = await authToken();
     const res = await fetch(SUPABASE_URL + '/functions/v1/recipes', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ products: owned, meal: activeMeal, prefs: aiMoods, useFirst: Array.isArray(useFirst) ? useFirst : [] })
     });
     const data = await res.json();

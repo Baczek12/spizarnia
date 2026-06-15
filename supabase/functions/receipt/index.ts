@@ -2,6 +2,7 @@
 // Zdjęcie paragonu → Gemini Vision → lista produktów spożywczych (JSON).
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,10 +13,21 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+async function requireUser(req: Request): Promise<boolean> {
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!jwt) return false;
+  try {
+    const sb = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "");
+    const { data, error } = await sb.auth.getUser(jwt);
+    return !error && !!data.user;
+  } catch { return false; }
+}
+
 const CATS = "Przetwory, Sosy/Pasty, Nabiał, Suche, Tłuszcze, Warzywa, Mięso, Wędliny, Ryby i owoce morza, Owoce, Przyprawy, Makarony i kasze, Pieczywo, Napoje, Kawa / Herbata, Mrożonki, Do pieczenia, Słodycze, Słone przekąski, Inne";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (!(await requireUser(req))) return json({ error: "Wymagane logowanie" }, 401);
   try {
     const body = await req.json().catch(() => ({}));
     const image: string = (body.image || "").replace(/^data:[^;]+;base64,/, "");
