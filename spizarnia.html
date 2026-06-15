@@ -1374,29 +1374,8 @@
 <script>
 // ─── DEFAULT DATA ────────────────────────────────────────────────────────────
 const TODAY = '2026-06-04';
-const DEFAULT_PRODUCTS = [
-  { id: 1,  name: "Oliwki Kalamata bez pestek", brand: "Vera Creta",    category: "Przetwory",  qty: 1, unit: "słoik",   date: TODAY },
-  { id: 2,  name: "Pesto alla Calabrese",        brand: "GustoBello",   category: "Sosy/Pasty", qty: 1, unit: "słoik",   date: TODAY },
-  { id: 3,  name: "Fasola Cannellini",           brand: "Dawtona",      category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
-  { id: 4,  name: "Śmietanka 30%",              brand: "Łaciata",      category: "Nabiał",     qty: 1, unit: "250ml",   date: TODAY },
-  { id: 5,  name: "Groszek konserwowy",          brand: "Nasza Spiżarnia", category: "Przetwory", qty: 2, unit: "puszka", date: TODAY },
-  { id: 6,  name: "Groszek konserwowy",          brand: "Rolnik",       category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
-  { id: 7,  name: "Czerwona Fasola porcja",      brand: "Bonduelle",    category: "Przetwory",  qty: 2, unit: "op.",     date: TODAY },
-  { id: 8,  name: "Kukurydza złocista porcja",  brand: "Bonduelle",    category: "Przetwory",  qty: 1, unit: "op.",     date: TODAY },
-  { id: 9,  name: "Brzoskwinie w syropie",       brand: "Kier",         category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
-  { id: 10, name: "Skrobia ziemniaczana",        brand: "Plony Natury", category: "Suche",      qty: 1, unit: "op.",     date: TODAY },
-  { id: 11, name: "Pomodori Secchi e Pistacchi", brand: "Tigullio",     category: "Przetwory",  qty: 1, unit: "słoik",   date: TODAY },
-  { id: 12, name: "Polpa – pomidory krojone",    brand: "Mutti",        category: "Przetwory",  qty: 1, unit: "puszka",  date: TODAY },
-  { id: 13, name: "Ragù di Cinghiale",           brand: "Esselunga",    category: "Sosy/Pasty", qty: 1, unit: "słoik",   date: TODAY },
-  { id: 14, name: "Mleko kokosowe",              brand: "Real Thai",    category: "Przetwory",  qty: 1, unit: "500ml",   date: TODAY },
-  { id: 15, name: "Makaron instant",             brand: "Vifon",        category: "Suche",      qty: 2, unit: "paczka",  date: TODAY },
-  { id: 16, name: "Bułka tarta Panko",           brand: "Goong",        category: "Suche",      qty: 1, unit: "op.",     date: TODAY },
-  { id: 17, name: "Ryż biały długoziarnisty",    brand: "Plony Natury", category: "Suche",      qty: 3, unit: "op.",     date: TODAY },
-  { id: 18, name: "Lasagne",                     brand: "GustoBello",   category: "Suche",      qty: 2, unit: "500g",    date: TODAY },
-  { id: 19, name: "Lasagne",                     brand: "Combino",      category: "Suche",      qty: 1, unit: "500g",    date: TODAY },
-  { id: 20, name: "Olej roślinny",               brand: "",             category: "Tłuszcze",   qty: 1, unit: "butelka", date: TODAY },
-  { id: 21, name: "Mozzarella wiórki",           brand: "Delikate",     category: "Nabiał",     qty: 1, unit: "op.",     date: TODAY },
-];
+// Brak przykładowych danych w kodzie — spiżarnia ładuje się z chmury po zalogowaniu.
+const DEFAULT_PRODUCTS = [];
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let products = JSON.parse(localStorage.getItem('spizarnia_v1') || 'null') || DEFAULT_PRODUCTS;
@@ -1496,7 +1475,7 @@ function ensureSupa() {
 
 // ─── LOGOWANIE (Supabase Auth) ───────────────────────────────────────────────
 let authMode = 'login';   // 'login' | 'signup'
-let cloudStarted = false;
+let appEntered = false;
 
 function showLogin() {
   document.getElementById('authOverlay').style.display = 'flex';
@@ -1562,22 +1541,47 @@ async function doLogout() {
   if (supa) await supa.auth.signOut();
 }
 
+// Wyczyść lokalne dane (przy wylogowaniu / braku sesji) — żeby nic nie zostało na urządzeniu/w widoku
+function clearLocalData() {
+  ['spizarnia_v1', 'spizarnia_updated', 'spizarnia_shop_v1', 'spizarnia_shop_updated',
+   'spizarnia_rec_v1', 'spizarnia_rec_updated', 'spizarnia_collapsed'].forEach(k => localStorage.removeItem(k));
+  products = []; shopping = []; myRecipes = [];
+  nextId = 1; shopNextId = 1; myRecNextId = 1;
+  lastSyncedJSON = ''; lastShopJSON = ''; lastRecJSON = '';
+}
+
+// Wejście do aplikacji — DOPIERO po zalogowaniu (renderujemy i wczytujemy dane)
+function enterApp() {
+  if (!appEntered) {
+    appEntered = true;
+    render();        // pokaż dane dopiero teraz (zalogowany)
+    initCloud();     // synchronizacja z chmurą
+  }
+  hideLogin();
+  document.getElementById('logoutBtn').style.display = 'flex';
+}
+
 async function initAuth() {
   if (!CLOUD_ENABLED || !window.supabase) {
-    // bez chmury — działaj lokalnie, bez logowania
+    // bez chmury — tryb lokalny (brak logowania)
     setSyncStatus('local');
     hideLogin();
+    appEntered = true;
+    render();
     initCloud();
     return;
   }
   ensureSupa();
   supa.auth.onAuthStateChange((event, session) => {
     if (session && session.user) {
-      hideLogin();
-      document.getElementById('logoutBtn').style.display = 'flex';
-      if (!cloudStarted) { cloudStarted = true; initCloud(); }
+      enterApp();
     } else {
-      if (event === 'SIGNED_OUT') { cloudStarted = false; setSyncStatus('local'); }
+      // brak sesji / wylogowano → wyczyść i pokaż logowanie (żadnych danych w tle)
+      appEntered = false;
+      cloudReady = false;
+      clearLocalData();
+      render();
+      setSyncStatus('local');
       showLogin();
     }
   });
@@ -3210,8 +3214,7 @@ function saveRecipeForm() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-render();
-initAuth();
+initAuth();   // render() i wczytanie danych dopiero po zalogowaniu (wewnątrz enterApp)
 
 // Service Worker (PWA / offline)
 if ('serviceWorker' in navigator) {
