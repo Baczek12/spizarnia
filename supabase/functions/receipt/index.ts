@@ -32,9 +32,17 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const image: string = (body.image || "").replace(/^data:[^;]+;base64,/, "");
     const mime: string = body.mime || "image/jpeg";
+    const pantry: any[] = Array.isArray(body.pantry) ? body.pantry.slice(0, 250) : [];
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) return json({ error: "Brak GEMINI_API_KEY" }, 500);
     if (!image) return json({ items: [] }, 200);
+
+    const pantryList = pantry
+      .map((p) => `- ${p.name}${p.brand ? " (" + p.brand + ")" : ""}`.trim())
+      .join("\n");
+    const dedupRules = pantry.length
+      ? `\nW spiżarni są JUŻ te produkty:\n${pantryList}\nJeśli rozpoznany z paragonu produkt to TEN SAM (mimo innej, sklepowej nazwy — np. "MLEKO UHT 3,2%" = "Mleko 3,2%"), ustaw pole "sameAs" na DOKŁADNĄ nazwę z powyższej listy (bez marki). Jeśli to nowy produkt — "sameAs" puste. Nie scalaj produktów różniących się istotnie (inny rodzaj, smak, rozmiar przeznaczony do osobnego liczenia).`
+      : "";
 
     const prompt =
 `Przeanalizuj to zdjęcie paragonu zakupowego (lub zdjęcie produktów).
@@ -44,9 +52,10 @@ Dla każdego produktu podaj:
 - "name": czytelna, znormalizowana nazwa po polsku (rozwiń skróty z paragonu, popraw literówki),
 - "qty": liczba sztuk/opakowań jako liczba całkowita (domyślnie 1),
 - "unit": jednostka lub rozmiar jeśli widać (np. "szt", "500 g", "1 l", "op"), inaczej "szt",
-- "category": dokładnie jedna z: ${CATS}.
+- "category": dokładnie jedna z: ${CATS},
+- "sameAs": nazwa istniejącego produktu, jeśli to ten sam (patrz niżej), inaczej "".${dedupRules}
 Zwróć WYŁĄCZNIE poprawny JSON w formacie:
-{"items":[{"name":"...","qty":1,"unit":"szt","category":"..."}]}`;
+{"items":[{"name":"...","qty":1,"unit":"szt","category":"...","sameAs":""}]}`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     const gr = await fetch(url, {

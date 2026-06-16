@@ -832,6 +832,27 @@
       background: white;
       max-width: 130px;
     }
+    .parsed-merge {
+      margin-top: 5px;
+      font-size: 11.5px;
+      color: var(--green-dark);
+      background: var(--green-light);
+      padding: 3px 8px;
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .parsed-merge button {
+      border: none;
+      background: rgba(0,0,0,0.06);
+      color: var(--gray-dark);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
 
     /* RECIPES */
     .recipe-card {
@@ -2415,6 +2436,7 @@ async function handleReceiptPhotos(fileList) {
   label.textContent = '✨ AI rozpoznaje produkty…';
 
   const all = [];
+  const pantryPayload = products.map(p => ({ name: p.name, brand: p.brand }));
   try {
     for (let n = 0; n < files.length; n++) {
       label.textContent = files.length > 1 ? `✨ AI: zdjęcie ${n + 1}/${files.length}…` : '✨ AI rozpoznaje produkty…';
@@ -2424,7 +2446,7 @@ async function handleReceiptPhotos(fileList) {
       const res = await fetch(SUPABASE_URL + '/functions/v1/receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_ANON_KEY },
-        body: JSON.stringify({ image: b64, mime: 'image/jpeg' })
+        body: JSON.stringify({ image: b64, mime: 'image/jpeg', pantry: pantryPayload })
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
@@ -2442,13 +2464,19 @@ async function handleReceiptPhotos(fileList) {
     showToast('🤔 Nie rozpoznano produktów — spróbuj wyraźniejszego zdjęcia');
     return;
   }
-  parsedItems = all.map(it => ({
-    name: String(it.name || '').trim() || 'Produkt',
-    qty: parseInt(it.qty) || 1,
-    unit: String(it.unit || 'szt').trim() || 'szt',
-    category: it.category || guessCategory(String(it.name || '').toLowerCase()),
-    include: true
-  }));
+  parsedItems = all.map(it => {
+    let sameAs = String(it.sameAs || '').trim();
+    // potwierdź, że dopasowanie wskazuje realny produkt w spiżarni
+    if (sameAs && !products.some(p => p.name.toLowerCase() === sameAs.toLowerCase())) sameAs = '';
+    return {
+      name: String(it.name || '').trim() || 'Produkt',
+      qty: parseInt(it.qty) || 1,
+      unit: String(it.unit || 'szt').trim() || 'szt',
+      category: it.category || guessCategory(String(it.name || '').toLowerCase()),
+      sameAs,
+      include: true
+    };
+  });
   renderParsed();
   showToast(`✨ AI rozpoznało ${parsedItems.length} produktów`);
   document.getElementById('parsedWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2681,6 +2709,7 @@ function renderParsed() {
               ${cats.map(c => `<option value="${c}" ${c === it.category ? 'selected' : ''}>${c}</option>`).join('')}
             </select>
           </div>
+          ${it.sameAs ? `<div class="parsed-merge">↗ doda do: <b>${esc(it.sameAs)}</b><button onclick="parsedItems[${i}].sameAs='';renderParsed()">osobno</button></div>` : ''}
         </div>
       </div>`;
   });
@@ -2699,14 +2728,19 @@ function toggleParsed(i) {
 function commitParsed() {
   const chosen = parsedItems.filter(it => it.include && it.name.trim());
   if (chosen.length === 0) { showToast('Nie zaznaczono produktów'); return; }
-  chosen.forEach(it => upsertProduct({
-    name: it.name.trim(), brand: '', category: it.category, qty: it.qty, unit: it.unit
-  }));
+  let merged = 0;
+  chosen.forEach(it => {
+    if (it.sameAs) {
+      const ex = products.find(p => p.name.toLowerCase() === it.sameAs.toLowerCase());
+      if (ex) { ex.qty = (Number(ex.qty) || 0) + it.qty; ex.date = todayStr(); merged++; return; }
+    }
+    upsertProduct({ name: it.name.trim(), brand: '', category: it.category, qty: it.qty, unit: it.unit });
+  });
   estimateExpiries();
   save();
   render();
   clearReceipt();
-  showToast(`✅ Dodano ${chosen.length} produktów z paragonu!`);
+  showToast(merged ? `✅ Dodano ${chosen.length} (scalono ${merged} z istniejącymi)` : `✅ Dodano ${chosen.length} produktów z paragonu!`);
   setView('pantry');
 }
 
