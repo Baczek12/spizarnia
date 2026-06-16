@@ -1069,7 +1069,22 @@
     }
     .recipe-act.save { background: var(--green); color: white; }
     .recipe-act.del { background: var(--red-light); color: var(--red); font-size: 15px; padding: 6px 9px; }
+    .recipe-act.edit { background: var(--green-light); color: var(--green-dark); font-size: 15px; padding: 6px 9px; }
     .recipe-act:active { opacity: 0.8; }
+
+    /* SCALANIE DUPLIKATÓW */
+    #mergeList { max-height: 46vh; overflow-y: auto; }
+    .merge-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 4px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .merge-row:active { background: var(--green-light); }
+    .merge-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .merge-meta { font-size: 12px; color: var(--gray-dark); }
+    .merge-sim { font-size: 10px; font-weight: 700; color: var(--green-dark); background: var(--green-light); padding: 1px 6px; border-radius: 8px; }
+    .merge-go { font-size: 12px; font-weight: 700; color: var(--green-dark); flex-shrink: 0; }
 
     /* CHIPSY „na co masz ochotę" */
     .mood-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
@@ -1320,6 +1335,7 @@
     </select>
     <label>Data ważności</label>
     <input type="date" id="newExpiry">
+    <button class="full-btn secondary" id="mergeBtn" style="display:none; margin-top:10px;" onclick="openMergeSheet(editingId)">🔗 Połącz z duplikatem</button>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal()">Anuluj</button>
       <button class="btn btn-primary" id="modalSubmit" onclick="saveProduct()">Dodaj</button>
@@ -1330,7 +1346,7 @@
 <!-- ─── MODAL: WŁASNY PRZEPIS ───────────────────────────────────── -->
 <div class="modal-overlay" id="recipeModalOverlay" onclick="closeRecipeFormIfOutside(event)">
   <div class="modal">
-    <h2>➕ Własny przepis</h2>
+    <h2 id="recipeModalTitle">➕ Własny przepis</h2>
     <label>Nazwa *</label>
     <input type="text" id="recName" placeholder="np. Naleśniki">
     <div class="modal-row">
@@ -1354,6 +1370,19 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeRecipeForm()">Anuluj</button>
       <button class="btn btn-primary" onclick="saveRecipeForm()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: POŁĄCZ DUPLIKATY ─────────────────────────────────── -->
+<div class="modal-overlay" id="mergeOverlay" onclick="closeMergeIfOutside(event)">
+  <div class="modal">
+    <h2>🔗 Połącz duplikat</h2>
+    <p class="panel-intro" style="margin-bottom:8px;">Wybierz produkt, który jest tym samym co <b id="mergeTargetName"></b>. Ilości się <b>zsumują</b>, a wybrany zniknie (zostaje ten edytowany).</p>
+    <input type="text" id="mergeSearch" placeholder="Szukaj produktu…" oninput="renderMergeList()" style="margin-bottom:6px;">
+    <div id="mergeList"></div>
+    <div class="modal-actions" style="grid-template-columns:1fr;">
+      <button class="btn btn-secondary" onclick="closeMerge()">Anuluj</button>
     </div>
   </div>
 </div>
@@ -2265,11 +2294,69 @@ function openModal(id) {
     title.textContent = '➕ Dodaj produkt';
     btn.textContent = 'Dodaj';
   }
+  document.getElementById('mergeBtn').style.display = editingId != null ? 'block' : 'none';
   document.getElementById('modalOverlay').classList.add('open');
   if (editingId == null) setTimeout(() => document.getElementById('newName').focus(), 300);
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+
+// ─── SCALANIE DUPLIKATÓW ─────────────────────────────────────────────────────
+let mergeTargetId = null;
+function nameWords(s) {
+  return String(s || '').toLowerCase().replace(/[^a-ząćęłńóśźż0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 3);
+}
+function nameSimilarity(a, b) {
+  const wa = new Set(nameWords(a)), wb = nameWords(b);
+  if (!wa.size || !wb.length) return 0;
+  let shared = 0; wb.forEach(w => { if (wa.has(w)) shared++; });
+  return shared;
+}
+function openMergeSheet(id) {
+  if (id == null) return;
+  mergeTargetId = id;
+  const t = products.find(p => p.id === id);
+  if (!t) return;
+  document.getElementById('mergeTargetName').textContent = t.name + (t.brand ? ' (' + t.brand + ')' : '');
+  document.getElementById('mergeSearch').value = '';
+  renderMergeList();
+  closeModal();
+  document.getElementById('mergeOverlay').classList.add('open');
+}
+function renderMergeList() {
+  const t = products.find(p => p.id === mergeTargetId);
+  if (!t) return;
+  const q = document.getElementById('mergeSearch').value.toLowerCase().trim();
+  const list = products.filter(p => p.id !== mergeTargetId)
+    .filter(p => !q || (p.name + ' ' + (p.brand || '')).toLowerCase().includes(q))
+    .map(p => ({ p, sim: nameSimilarity(t.name, p.name) }))
+    .sort((a, b) => b.sim - a.sim || a.p.name.localeCompare(b.p.name));
+  const el = document.getElementById('mergeList');
+  if (!list.length) { el.innerHTML = `<div class="empty" style="padding:20px;"><p>Brak innych produktów</p></div>`; return; }
+  el.innerHTML = list.slice(0, 40).map(({ p, sim }) => `
+    <div class="merge-row" onclick="doMerge(${p.id})">
+      <div class="card-ico" style="width:34px;height:34px;font-size:17px;">${productEmoji(p)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="merge-name">${esc(p.name)}${sim > 0 ? ' <span class="merge-sim">≈ podobny</span>' : ''}</div>
+        <div class="merge-meta">${p.brand ? esc(p.brand) + ' · ' : ''}${p.qty} ${esc(p.unit)}</div>
+      </div>
+      <span class="merge-go">Połącz →</span>
+    </div>`).join('');
+}
+function doMerge(otherId) {
+  const t = products.find(p => p.id === mergeTargetId);
+  const o = products.find(p => p.id === otherId);
+  if (!t || !o) return;
+  if (!confirm(`Połączyć „${o.name}" z „${t.name}"?\nIlości się zsumują (${t.qty} + ${o.qty}), a „${o.name}" zniknie.`)) return;
+  t.qty = (Number(t.qty) || 0) + (Number(o.qty) || 0);
+  t.date = todayStr();
+  products = products.filter(p => p.id !== otherId);
+  save(); render();
+  closeMerge();
+  showToast(`🔗 Połączono w „${t.name}"`);
+}
+function closeMerge() { document.getElementById('mergeOverlay').classList.remove('open'); mergeTargetId = null; }
+function closeMergeIfOutside(e) { if (e.target === document.getElementById('mergeOverlay')) closeMerge(); }
 
 // ─── LISTA ZAKUPÓW ───────────────────────────────────────────────────────────
 function renderShopping() {
@@ -3132,7 +3219,7 @@ function recipeCardHtml(r, opts = {}) {
   const collapsed = !expandedRecipes.has(key);
   let actions = '';
   if (opts.save !== undefined) actions = `<button class="recipe-act save" onclick="event.stopPropagation(); saveAIRecipe(${opts.save})">💾 Zapisz</button>`;
-  else if (opts.del !== undefined) actions = `<button class="recipe-act del" onclick="event.stopPropagation(); deleteMyRecipe(${opts.del})">🗑</button>`;
+  else if (opts.del !== undefined) actions = `<button class="recipe-act edit" onclick="event.stopPropagation(); openRecipeForm(${opts.del})">✏️</button><button class="recipe-act del" onclick="event.stopPropagation(); deleteMyRecipe(${opts.del})">🗑</button>`;
 
   const missingList = ings.filter(i => !haveIngredient(i));
   const ownedList = ings.filter(i => haveIngredient(i));
@@ -3244,14 +3331,29 @@ function deleteMyRecipe(id) {
 }
 
 // Formularz własnego przepisu
-function openRecipeForm() {
-  document.getElementById('recName').value = '';
-  document.getElementById('recEmoji').value = '';
-  document.getElementById('recMeal').value = 'Obiad';
-  document.getElementById('recIngredients').value = '';
-  document.getElementById('recSteps').value = '';
+let editingRecipeId = null;
+function openRecipeForm(id) {
+  editingRecipeId = (id !== undefined && id !== null) ? id : null;
+  const title = document.getElementById('recipeModalTitle');
+  if (editingRecipeId != null) {
+    const r = myRecipes.find(x => x.id === editingRecipeId);
+    if (!r) { editingRecipeId = null; return; }
+    document.getElementById('recName').value = r.name || '';
+    document.getElementById('recEmoji').value = r.emoji || '';
+    document.getElementById('recMeal').value = r.meal || 'Obiad';
+    document.getElementById('recIngredients').value = (r.ingredients || []).join('\n');
+    document.getElementById('recSteps').value = (r.steps || []).join('\n');
+    if (title) title.textContent = '✏️ Edytuj przepis';
+  } else {
+    document.getElementById('recName').value = '';
+    document.getElementById('recEmoji').value = '';
+    document.getElementById('recMeal').value = 'Obiad';
+    document.getElementById('recIngredients').value = '';
+    document.getElementById('recSteps').value = '';
+    if (title) title.textContent = '➕ Własny przepis';
+  }
   document.getElementById('recipeModalOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('recName').focus(), 300);
+  if (editingRecipeId == null) setTimeout(() => document.getElementById('recName').focus(), 300);
 }
 function closeRecipeForm() { document.getElementById('recipeModalOverlay').classList.remove('open'); }
 function closeRecipeFormIfOutside(e) { if (e.target === document.getElementById('recipeModalOverlay')) closeRecipeForm(); }
@@ -3262,11 +3364,17 @@ function saveRecipeForm() {
   const meal = document.getElementById('recMeal').value;
   const ingredients = document.getElementById('recIngredients').value.split('\n').map(s => s.trim()).filter(Boolean);
   const steps = document.getElementById('recSteps').value.split('\n').map(s => s.trim()).filter(Boolean);
-  myRecipes.unshift({ id: myRecNextId++, source: 'me', name, emoji, meal, ingredients, steps });
+  if (editingRecipeId != null) {
+    const r = myRecipes.find(x => x.id === editingRecipeId);
+    if (r) Object.assign(r, { name, emoji, meal, ingredients, steps });
+    showToast('✏️ Zapisano przepis');
+  } else {
+    myRecipes.unshift({ id: myRecNextId++, source: 'me', name, emoji, meal, ingredients, steps });
+    showToast('✅ Dodano przepis');
+  }
   saveRec(); closeRecipeForm();
   recipeMode = 'mine';
   if (activeView === 'recipes') renderRecipes();
-  showToast('✅ Dodano przepis');
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
